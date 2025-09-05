@@ -11,8 +11,16 @@ if (strlen($_SESSION['alogin']) == 0) {
     $query->execute();
     $supervisors = $query->fetchAll(PDO::FETCH_OBJ);
 
+    // Auto-generate next EmpId (enumerate)
+    $sql = "SELECT MAX(EmpId) AS maxid FROM tblemployees";
+    $query = $dbh->prepare($sql);
+    $query->execute();
+    $row = $query->fetch(PDO::FETCH_OBJ);
+    $nextEmpId = $row && $row->maxid ? intval($row->maxid) + 1 : 1001; // Start from 1001 if table is empty
+
     if (isset($_POST['add'])) {
-        $empid = $_POST['empcode'];
+        // Use auto-generated EmpId if not provided
+        $empid = !empty($_POST['empcode']) ? $_POST['empcode'] : $nextEmpId;
         $fname = $_POST['firstName'];
         $lname = $_POST['lastName'];
         $email = $_POST['email'];
@@ -28,7 +36,7 @@ if (strlen($_SESSION['alogin']) == 0) {
 
         // New columns
         $role = isset($_POST['role']) ? $_POST['role'] : 'Employee';
-        $supervisor_id = ($role == 'Employee' && !empty($_POST['supervisor_id'])) ? intval($_POST['supervisor_id']) : null;
+        $supervisor_id = !empty($_POST['supervisor_id']) ? intval($_POST['supervisor_id']) : null;
 
         $sql = "INSERT INTO tblemployees(EmpId,FirstName,LastName,EmailId,Password,Gender,Dob,Department,Address,City,Country,Phonenumber,Status,role,supervisor_id) 
                 VALUES(:empid,:fname,:lname,:email,:password,:gender,:dob,:department,:address,:city,:country,:mobileno,:status,:role,:supervisor_id)";
@@ -166,8 +174,8 @@ if (strlen($_SESSION['alogin']) == 0) {
                                                     <div class="row">
                                                         <?php if ($error) {?><div class="errorWrap"><strong>ERROR</strong>:<?php echo htmlentities($error); ?> </div><?php } else if ($msg) {?><div class="succWrap"><strong>SUCCESS</strong>:<?php echo htmlentities($msg); ?> </div><?php }?>
                                                         <div class="input-field col  s12">
-                                                            <label for="empcode">Employee Code(Must be unique)</label>
-                                                            <input  name="empcode" id="empcode" onBlur="checkAvailabilityEmpid()" type="text" autocomplete="off" required>
+                                                            <label for="empcode">Employee Code (auto-generated if left blank)</label>
+                                                            <input  name="empcode" id="empcode" onBlur="checkAvailabilityEmpid()" type="text" autocomplete="off" value="<?php echo $nextEmpId; ?>">
                                                             <span id="empid-availability" style="font-size:12px;"></span>
                                                         </div>
                                                         <div class="input-field col m6 s12">
