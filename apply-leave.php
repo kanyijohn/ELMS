@@ -47,48 +47,48 @@ if (isset($_POST['apply'])) {
         $lastInsertId = $dbh->lastInsertId();
 
         if ($lastInsertId) {
-            // Fetch supervisor email
-            $sql = "SELECT s.EmailId, s.FirstName, s.LastName 
-                    FROM tblemployees e 
-                    JOIN tblemployees s ON e.supervisor_id = s.id 
-                    WHERE e.id = :empid";
+            // Fetch all supervisors' emails
+            $sql = "SELECT EmailId, FirstName, LastName FROM tblemployees WHERE role = 'Supervisor'";
             $query = $dbh->prepare($sql);
-            $query->bindParam(':empid', $empid, PDO::PARAM_INT);
             $query->execute();
-            $supervisor = $query->fetch(PDO::FETCH_OBJ);
+            $supervisors = $query->fetchAll(PDO::FETCH_OBJ);
 
-            if ($supervisor) {
-                $mail = new PHPMailer(true);
-                try {
-                    $mail->isSMTP();
-                    $mail->Host = 'smtp.gmail.com';
-                    $mail->SMTPAuth = true;
-                    $mail->Username = 'mrkanyi8@gmail.com'; // Gmail
-                    $mail->Password = 'kanyi726_';   // Gmail App Password
-                    $mail->SMTPSecure = 'tls';
-                    $mail->Port = 587;
+            if ($supervisors && count($supervisors) > 0) {
+                foreach ($supervisors as $supervisor) {
+                    $mail = new PHPMailer(true);
+                    try {
+                        $mail->isSMTP();
+                        $mail->Host = 'smtp.gmail.com';
+                        $mail->SMTPAuth = true;
+                        $mail->Username = 'mrkanyi8@gmail.com'; // Gmail
+                        $mail->Password = 'unqchhgsycymtspk';   // Gmail App Password
+                        $mail->SMTPSecure = 'tls';
+                        $mail->Port = 587;
 
-                    $mail->setFrom('mrkanyi8@gmail.com', 'ELMS System');
-                    $mail->addAddress($supervisor->EmailId, $supervisor->FirstName . ' ' . $supervisor->LastName);
+                        $mail->setFrom('mrkanyi8@gmail.com', 'ELMS System');
+                        $mail->addAddress($supervisor->EmailId, $supervisor->FirstName . ' ' . $supervisor->LastName);
 
-                    $mail->isHTML(false);
-                    $mail->Subject = "Leave Request Notification";
-                    $mail->Body = "Dear " . $supervisor->FirstName . " " . $supervisor->LastName . ",\n\n"
-                                . "A new leave request has been submitted by your employee.\n"
-                                . "Leave Type: $leavetype\n"
-                                . "From: $fromdate\n"
-                                . "To: $todate\n"
-                                . "Reason: $description\n\n"
-                                . "Please login to your dashboard to review and take action.\n\n"
-                                . "Regards,\nELMS System";
+                        $mail->isHTML(false);
+                        $mail->Subject = "Leave Request Notification";
+                        $mail->Body = "Dear " . $supervisor->FirstName . " " . $supervisor->LastName . ",\n\n"
+                                    . "A new leave request has been submitted by an employee.\n"
+                                    . "Leave Type: $leavetype\n"
+                                    . "From: $fromdate\n"
+                                    . "To: $todate\n"
+                                    . "Reason: $description\n\n"
+                                    . "Please login to your dashboard to review and take action.\n\n"
+                                    . "Regards,\nELMS System";
 
-                    $mail->send();
-                    $msg = "Leave applied successfully. Supervisor notified!";
-                } catch (Exception $e) {
-                    $msg = "Leave applied, but email could not be sent. Mailer Error: {$mail->ErrorInfo}";
+                        $mail->send();
+                        $mail->SMTPDebug = 2;
+                        $mail->Debugoutput = 'html';
+                    } catch (Exception $e) {
+                        $error = "Mailer Error: " . $mail->ErrorInfo;
+                    }
                 }
+                $msg = "Leave applied successfully. All supervisors notified!";
             } else {
-                $msg = "Leave applied successfully, but supervisor not found.";
+                $msg = "Leave applied successfully, but no supervisor found.";
             }
         } else {
             $error = "Something went wrong. Please try again";
@@ -191,20 +191,14 @@ if (isset($_POST['apply'])) {
 
     <div class="left-sidebar-hover"></div>
 
-    <!-- ✅ Correct JS order -->
     <script src="assets/plugins/jquery/jquery-2.2.0.min.js"></script>
     <script src="assets/plugins/materialize/js/materialize.min.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // ✅ Initialize Materialize datepickers
         var elems = document.querySelectorAll('.datepicker');
         if (M && M.Datepicker) {
             M.Datepicker.init(elems, { format: 'yyyy-mm-dd' });
-        } else {
-            console.error("Materialize Datepicker not loaded.");
         }
-
-        // Initialize select dropdown
         var selects = document.querySelectorAll('select');
         if (M && M.FormSelect) {
             M.FormSelect.init(selects);
