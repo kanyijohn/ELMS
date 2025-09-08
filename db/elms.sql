@@ -120,7 +120,6 @@ CREATE TABLE `tblleaves` (
 --
 
 INSERT INTO `tblleaves` (`id`, `LeaveType`, `ToDate`, `FromDate`, `Description`, `PostingDate`, `AdminRemark`, `AdminRemarkDate`, `Status`, `IsRead`, `empid`) VALUES
-(1, 'Casual Leave', '1 NOV 2020', '3 NOV 2020', 'Out of Station', '2020-10-30 05:49:40', ' Okay', '2020-11-01 23:26:27 ', 2, 1, 1),
 
 
 --
@@ -141,8 +140,6 @@ CREATE TABLE `tblleavetype` (
 INSERT INTO `tblleavetype` (`id`, `LeaveType`, `Description`, `CreationDate`) VALUES
 (1, 'Casual Leave', 'Casual Leave ', '2020-11-01 12:07:56'),
 (2, 'Medical Leave test', 'Medical Leave  test', '2020-11-06 13:16:09'),
-(3, 'Restricted Holiday(RH)', 'Restricted Holiday(RH)', '2020-11-06 13:16:38'),
-(4, 'Casual Leave( half day)', 'Morning/Afternoon', '2020-11-06 13:16:38');
 
 --
 -- Indexes for dumped tables
