@@ -19,3 +19,9 @@ Installation
 * Populate the database by importing the db/elms.sql file via phpMyAdmin
 * Configure your database connection details in the includes/config.php file
 * Start the server and open the webpage in localhost/elms
+
+Login Details
+
+* Two logins; admin login and employee login
+* For the admin login use the credentials in tbladmin table (username and password is admin@726_) in the elms database.
+* For employee login use the email in tblemployee and malini@726_ as the password.

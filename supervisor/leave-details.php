@@ -92,6 +92,8 @@ $leaves = $query->fetchAll(PDO::FETCH_OBJ);
                                     <button type="submit" name="action" value="Approve" class="btn btn-success btn-sm">Approve</button>
                                     <button type="submit" name="action" value="Declined" class="btn btn-danger btn-sm">Decline</button>
                                 </form>
+                                <!-- Removed jss.png reference to fix 404 error -->
+                                <!-- <img src="assets/images/jss.png" alt="JSS" style="display:none;"> -->
                                 <a href="leave-details.php?leaveid=<?= $leave->id ?>" class="btn btn-info btn-sm mt-1">View Details</a>
                             </td>
                         </tr>
@@ -177,6 +179,7 @@ $leaves = $query->fetchAll(PDO::FETCH_OBJ);
 </main>
 <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+<!-- Removed jss.png reference to fix 404 error -->
 </body>
 </html>
 <?php ?>
