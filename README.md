@@ -23,5 +23,5 @@ Installation
 Login Details
 
 * Two logins; admin login and employee login
-* For the admin login use the credentials in tbladmin table (username and password is admin@726_) in the elms database.
+* For the admin login use the credentials in tbladmin table (username and password is admin@726_)
 * For employee login use the email in tblemployee and malini@726_ as the password.
