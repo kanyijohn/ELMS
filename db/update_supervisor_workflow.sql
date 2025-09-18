@@ -9,3 +9,7 @@ ALTER TABLE tblleaves
 
 -- (Optional) Add foreign key constraint if you want referential integrity
 ALTER TABLE tblemployees ADD CONSTRAINT fk_supervisor FOREIGN KEY (supervisor_id) REFERENCES tblemployees(id);
+
+ALTER TABLE tblleaves ADD Issued TINYINT(1) DEFAULT 0;
+
+
