@@ -1,13 +1,47 @@
 <?php 
 session_start();
 error_reporting(0);
-include 'includes/config.php';
-require_once 'includes/mail.php'; // ✅ include PHPMailer mail function
+include '../includes/config.php';
+
+// ✅ Direct PHPMailer
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+require '../includes/PHPMailer/Exception.php';
+require '../includes/PHPMailer/PHPMailer.php';
+require '../includes/PHPMailer/SMTP.php';
 
 if (strlen($_SESSION['alogin']) == 0) {
     header('location:index.php');
     exit();
 } else {
+
+    // function to send email
+    function sendMail($to, $subject, $body) {
+        $mail = new PHPMailer(true);
+        try {
+            // Server settings
+            $mail->isSMTP();
+            $mail->Host = 'smtp.gmail.com';
+            $mail->SMTPAuth = true;
+            $mail->Username = 'mrkanyi8@gmail.com'; // ✅ Gmail
+            $mail->Password = 'unqchhgsycymtspk'; // ✅ Gmail App Password
+            $mail->SMTPSecure = 'tls';
+            $mail->Port = 587;
+
+            // Recipients
+            $mail->setFrom('mrkanyi8@gmail.com', 'Admin Team');
+            $mail->addAddress($to);
+
+            // Content
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body    = $body;
+
+            $mail->send();
+        } catch (Exception $e) {
+            error_log("Mail Error: " . $mail->ErrorInfo);
+        }
+    }
 
     // Mark leave as read
     $isread = 1;
@@ -38,7 +72,7 @@ if (strlen($_SESSION['alogin']) == 0) {
         $query->bindParam(':did', $did, PDO::PARAM_INT);
         $query->execute();
 
-        // ✅ Send email notification to employee
+        // ✅ Send email
         $empSql = "SELECT EmailId, FirstName FROM tblemployees 
                    WHERE id=(SELECT empid FROM tblleaves WHERE id=:did)";
         $empQ = $dbh->prepare($empSql);
@@ -67,7 +101,7 @@ if (strlen($_SESSION['alogin']) == 0) {
         $query->bindParam(':did', $did, PDO::PARAM_INT);
         $query->execute();
 
-        // ✅ Send email notification to employee
+        // ✅ Send email
         $empSql = "SELECT EmailId, FirstName FROM tblemployees 
                    WHERE id=(SELECT empid FROM tblleaves WHERE id=:did)";
         $empQ = $dbh->prepare($empSql);
@@ -89,27 +123,26 @@ if (strlen($_SESSION['alogin']) == 0) {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Admin | Leave Details</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge"> <!-- ✅ Prevent Quirks -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Admin | Leave Details</title>
 
-    <!-- Styles -->
+    <!-- ✅ Materialize CSS -->
     <link type="text/css" rel="stylesheet" href="../assets/plugins/materialize/css/materialize.min.css"/>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link href="../assets/plugins/material-preloader/css/materialPreloader.min.css" rel="stylesheet">
     <link href="../assets/plugins/datatables/css/jquery.dataTables.min.css" rel="stylesheet">
     <link href="../assets/css/alpha.min.css" rel="stylesheet" type="text/css"/>
     <link href="../assets/css/custom.css" rel="stylesheet" type="text/css"/>
-    <link href="../assets/css/style.css" rel="stylesheet" type="text/css"/>
 </head>
 <body>
-<?php include 'includes/header.php';?>
-<?php include 'includes/sidebar.php';?>
+<?php include '../includes/header.php';?>
+<?php include '../includes/sidebar.php';?>
 
 <main class="mn-inner">
     <div class="row">
         <div class="col s12">
-            <div class="page-title" style="font-size:24px;">Leave Details</div>
+            <div class="page-title">Leave Details</div>
         </div>
 
         <div class="col s12 m12 l12">
@@ -117,10 +150,10 @@ if (strlen($_SESSION['alogin']) == 0) {
                 <div class="card-content">
                     <span class="card-title">Leave Details</span>
                     <?php if (!empty($msg)) { ?>
-                        <div class="succWrap"><strong>SUCCESS</strong>: <?php echo htmlentities($msg); ?></div>
+                        <div class="card-panel green lighten-4"><strong>SUCCESS</strong>: <?php echo htmlentities($msg); ?></div>
                     <?php } ?>
 
-                    <table class="display responsive-table">
+                    <table class="highlight responsive-table">
                         <tbody>
                         <?php
                         $lid = intval($_GET['leaveid']);
@@ -143,8 +176,6 @@ if (strlen($_SESSION['alogin']) == 0) {
                             <td><?php echo htmlentities($result->FirstName . " " . $result->LastName); ?></td>
                             <td><b>Emp ID:</b></td>
                             <td><?php echo htmlentities($result->EmpId); ?></td>
-                            <td><b>Gender:</b></td>
-                            <td><?php echo htmlentities($result->Gender); ?></td>
                         </tr>
                         <tr>
                             <td><b>Email:</b></td>
@@ -160,56 +191,40 @@ if (strlen($_SESSION['alogin']) == 0) {
                         </tr>
                         <tr>
                             <td><b>Description:</b></td>
-                            <td colspan="5"><?php echo htmlentities($result->Description); ?></td>
+                            <td colspan="3"><?php echo htmlentities($result->Description); ?></td>
                         </tr>
                         <tr>
                             <td><b>Supervisor Status:</b></td>
-                            <td colspan="5">
-                                <?php if ($result->Status == 1) echo '<span style="color:green">Approved</span>';
-                                elseif ($result->Status == 2) echo '<span style="color:red">Rejected</span>';
-                                else echo '<span style="color:blue">Pending</span>'; ?>
+                            <td colspan="3">
+                                <?php if ($result->Status == 1) echo '<span class="green-text">Approved</span>';
+                                elseif ($result->Status == 2) echo '<span class="red-text">Rejected</span>';
+                                else echo '<span class="blue-text">Pending</span>'; ?>
                             </td>
                         </tr>
                         <tr>
                             <td><b>Admin Remark:</b></td>
-                            <td colspan="5"><?php echo $result->AdminRemark ? htmlentities($result->AdminRemark) : "None"; ?></td>
+                            <td colspan="3"><?php echo $result->AdminRemark ? htmlentities($result->AdminRemark) : "None"; ?></td>
                         </tr>
                         <tr>
                             <td><b>Admin Action Date:</b></td>
-                            <td colspan="5"><?php echo $result->AdminRemarkDate ? htmlentities($result->AdminRemarkDate) : "NA"; ?></td>
+                            <td colspan="3"><?php echo $result->AdminRemarkDate ? htmlentities($result->AdminRemarkDate) : "NA"; ?></td>
                         </tr>
                         <tr>
                             <td><b>Issued:</b></td>
-                            <td colspan="5"><?php echo $result->Issued ? '<span style="color:green">Yes</span>' : '<span style="color:red">No</span>'; ?></td>
+                            <td colspan="3"><?php echo $result->Issued ? '<span class="green-text">Yes</span>' : '<span class="red-text">No</span>'; ?></td>
                         </tr>
 
                         <?php if ($result->Status == 0) { ?>
                         <tr>
-                            <td colspan="6">
-                                <a class="modal-trigger btn" href="#actionModal">Take Action</a>
-                                <form method="post">
-                                    <div id="actionModal" class="modal">
-                                        <div class="modal-content">
-                                            <h4>Admin Action</h4>
-                                            <select class="browser-default" name="status" required>
-                                                <option value="">Choose</option>
-                                                <option value="1">Approve</option>
-                                                <option value="2">Reject</option>
-                                            </select>
-                                            <textarea name="description" class="materialize-textarea" placeholder="Remark" required></textarea>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <input type="submit" name="update" class="btn blue" value="Submit">
-                                        </div>
-                                    </div>
-                                </form>
+                            <td colspan="4">
+                                <a class="modal-trigger btn blue" href="#actionModal">Take Action</a>
                             </td>
                         </tr>
                         <?php } ?>
 
                         <?php if ($result->Issued == 0) { ?>
                         <tr>
-                            <td colspan="6">
+                            <td colspan="4">
                                 <form method="post">
                                     <button type="submit" name="issue" class="btn green">Issue Leave</button>
                                 </form>
@@ -220,14 +235,34 @@ if (strlen($_SESSION['alogin']) == 0) {
                         <?php } } ?>
                         </tbody>
                     </table>
+
+                    <!-- ✅ Modal moved outside table -->
+                    <form method="post">
+                        <div id="actionModal" class="modal">
+                            <div class="modal-content">
+                                <h4>Admin Action</h4>
+                                <div class="input-field">
+                                    <select name="status" required>
+                                        <option value="">Choose</option>
+                                        <option value="1">Approve</option>
+                                        <option value="2">Reject</option>
+                                    </select>
+                                </div>
+                                <div class="input-field">
+                                    <textarea name="description" class="materialize-textarea" placeholder="Remark" required></textarea>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <input type="submit" name="update" class="modal-close btn blue" value="Submit">
+                            </div>
+                        </div>
+                    </form>
+
                 </div>
             </div>
         </div>
     </div>
 </main>
-
-<div class="left-sidebar-hover"></div>
-
 <!-- JS Scripts -->
 <script src="../assets/plugins/jquery/jquery-2.2.0.min.js"></script>
 <script src="../assets/plugins/materialize/js/materialize.min.js"></script>
