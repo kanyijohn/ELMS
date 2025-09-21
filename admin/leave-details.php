@@ -2,8 +2,11 @@
 session_start();
 error_reporting(0);
 include 'includes/config.php';
+require_once 'includes/mail.php'; // ✅ include PHPMailer mail function
+
 if (strlen($_SESSION['alogin']) == 0) {
     header('location:index.php');
+    exit();
 } else {
 
     // Mark leave as read
@@ -11,8 +14,8 @@ if (strlen($_SESSION['alogin']) == 0) {
     $did = intval($_GET['leaveid']);
     $sql = "UPDATE tblleaves SET IsRead=:isread WHERE id=:did";
     $query = $dbh->prepare($sql);
-    $query->bindParam(':isread', $isread, PDO::PARAM_STR);
-    $query->bindParam(':did', $did, PDO::PARAM_STR);
+    $query->bindParam(':isread', $isread, PDO::PARAM_INT);
+    $query->bindParam(':did', $did, PDO::PARAM_INT);
     $query->execute();
 
     // Admin approval/rejection
@@ -22,6 +25,7 @@ if (strlen($_SESSION['alogin']) == 0) {
         $status = $_POST['status'];
         date_default_timezone_set('Asia/Kolkata');
         $admremarkdate = date('Y-m-d H:i:s');
+
         $sql = "UPDATE tblleaves 
                 SET AdminRemark=:description,
                     Status=:status,
@@ -29,10 +33,29 @@ if (strlen($_SESSION['alogin']) == 0) {
                 WHERE id=:did";
         $query = $dbh->prepare($sql);
         $query->bindParam(':description', $description, PDO::PARAM_STR);
-        $query->bindParam(':status', $status, PDO::PARAM_STR);
+        $query->bindParam(':status', $status, PDO::PARAM_INT);
         $query->bindParam(':admremarkdate', $admremarkdate, PDO::PARAM_STR);
-        $query->bindParam(':did', $did, PDO::PARAM_STR);
+        $query->bindParam(':did', $did, PDO::PARAM_INT);
         $query->execute();
+
+        // ✅ Send email notification to employee
+        $empSql = "SELECT EmailId, FirstName FROM tblemployees 
+                   WHERE id=(SELECT empid FROM tblleaves WHERE id=:did)";
+        $empQ = $dbh->prepare($empSql);
+        $empQ->bindParam(':did', $did, PDO::PARAM_INT);
+        $empQ->execute();
+        $emp = $empQ->fetch(PDO::FETCH_OBJ);
+
+        if ($emp) {
+            $statusText = ($status == 1) ? "Approved" : "Rejected";
+            $subject = "Leave Application Update";
+            $body = "Dear {$emp->FirstName},<br><br>
+                     Your leave request has been <b>{$statusText}</b> by Admin.<br>
+                     Remark: {$description}<br><br>
+                     Regards,<br>Admin Team";
+            sendMail($emp->EmailId, $subject, $body);
+        }
+
         $msg = "Leave status updated successfully";
     }
 
@@ -41,8 +64,25 @@ if (strlen($_SESSION['alogin']) == 0) {
         $did = intval($_GET['leaveid']);
         $sql = "UPDATE tblleaves SET Issued=1 WHERE id=:did";
         $query = $dbh->prepare($sql);
-        $query->bindParam(':did', $did, PDO::PARAM_STR);
+        $query->bindParam(':did', $did, PDO::PARAM_INT);
         $query->execute();
+
+        // ✅ Send email notification to employee
+        $empSql = "SELECT EmailId, FirstName FROM tblemployees 
+                   WHERE id=(SELECT empid FROM tblleaves WHERE id=:did)";
+        $empQ = $dbh->prepare($empSql);
+        $empQ->bindParam(':did', $did, PDO::PARAM_INT);
+        $empQ->execute();
+        $emp = $empQ->fetch(PDO::FETCH_OBJ);
+
+        if ($emp) {
+            $subject = "Leave Issued";
+            $body = "Dear {$emp->FirstName},<br><br>
+                     Your leave request has been <b>ISSUED</b> by Admin.<br><br>
+                     Regards,<br>Admin Team";
+            sendMail($emp->EmailId, $subject, $body);
+        }
+
         $msg = "Leave issued successfully";
     }
 ?>
@@ -55,26 +95,12 @@ if (strlen($_SESSION['alogin']) == 0) {
 
     <!-- Styles -->
     <link type="text/css" rel="stylesheet" href="../assets/plugins/materialize/css/materialize.min.css"/>
-    <link type="text/css" rel="stylesheet" href="../assets/plugins/materialize/css/materialize.css"/>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link href="../assets/plugins/material-preloader/css/materialPreloader.min.css" rel="stylesheet">
     <link href="../assets/plugins/datatables/css/jquery.dataTables.min.css" rel="stylesheet">
     <link href="../assets/css/alpha.min.css" rel="stylesheet" type="text/css"/>
     <link href="../assets/css/custom.css" rel="stylesheet" type="text/css"/>
     <link href="../assets/css/style.css" rel="stylesheet" type="text/css"/>
-
-    <style>
-        .errorWrap {
-            padding: 10px; margin: 0 0 20px 0;
-            background: #fff; border-left: 4px solid #dd3d36;
-            box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-        }
-        .succWrap {
-            padding: 10px; margin: 0 0 20px 0;
-            background: #fff; border-left: 4px solid #5cb85c;
-            box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-        }
-    </style>
 </head>
 <body>
 <?php include 'includes/header.php';?>
@@ -90,11 +116,11 @@ if (strlen($_SESSION['alogin']) == 0) {
             <div class="card">
                 <div class="card-content">
                     <span class="card-title">Leave Details</span>
-                    <?php if ($msg) { ?>
+                    <?php if (!empty($msg)) { ?>
                         <div class="succWrap"><strong>SUCCESS</strong>: <?php echo htmlentities($msg); ?></div>
                     <?php } ?>
 
-                    <table id="example" class="display responsive-table">
+                    <table class="display responsive-table">
                         <tbody>
                         <?php
                         $lid = intval($_GET['leaveid']);
@@ -106,7 +132,7 @@ if (strlen($_SESSION['alogin']) == 0) {
                                 JOIN tblemployees ON tblleaves.empid=tblemployees.id 
                                 WHERE tblleaves.id=:lid";
                         $query = $dbh->prepare($sql);
-                        $query->bindParam(':lid', $lid, PDO::PARAM_STR);
+                        $query->bindParam(':lid', $lid, PDO::PARAM_INT);
                         $query->execute();
                         $results = $query->fetchAll(PDO::FETCH_OBJ);
                         if ($query->rowCount() > 0) {
@@ -158,7 +184,6 @@ if (strlen($_SESSION['alogin']) == 0) {
                         </tr>
 
                         <?php if ($result->Status == 0) { ?>
-                        <!-- Approve/Reject Modal -->
                         <tr>
                             <td colspan="6">
                                 <a class="modal-trigger btn" href="#actionModal">Take Action</a>
@@ -183,7 +208,6 @@ if (strlen($_SESSION['alogin']) == 0) {
                         <?php } ?>
 
                         <?php if ($result->Issued == 0) { ?>
-                        <!-- Issue Leave -->
                         <tr>
                             <td colspan="6">
                                 <form method="post">
@@ -208,12 +232,9 @@ if (strlen($_SESSION['alogin']) == 0) {
 <script src="../assets/plugins/jquery/jquery-2.2.0.min.js"></script>
 <script src="../assets/plugins/materialize/js/materialize.min.js"></script>
 <script src="../assets/plugins/material-preloader/js/materialPreloader.min.js"></script>
-<script src="../assets/plugins/jquery-blockui/jquery.blockui.js"></script>
 <script src="../assets/plugins/datatables/js/jquery.dataTables.min.js"></script>
 <script src="../assets/js/alpha.min.js"></script>
 <script src="../assets/js/pages/table-data.js"></script>
-<script src="../assets/plugins/google-code-prettify/prettify.js"></script>
-
 <script>
     $(document).ready(function(){
         $('.modal').modal();

@@ -1,14 +1,55 @@
 <?php
 session_start();
-error_reporting(0);
-include '../includes/config.php';   // supervisor includes path
+error_reporting(E_ALL);
+ini_set("display_errors", 1);
 
-// ✅ Require employee login
+include '../includes/config.php';
+
+// ✅ Include PHPMailer classes
+require '../includes/PHPMailer/PHPMailer.php';
+require '../includes/PHPMailer/SMTP.php';
+require '../includes/PHPMailer/Exception.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+// ✅ Reusable email sender function
+function sendMail($to, $subject, $body)
+{
+    $mail = new PHPMailer(true);
+    try {
+        //Server settings
+        $mail->isSMTP();
+        $mail->Host       = "smtp.gmail.com";
+        $mail->SMTPAuth   = true;
+        $mail->Username   = "mrkanyi8@gmail.com"; // ✅ Replace with your Gmail
+        $mail->Password   = "unqchhgsycymtspk"; // ✅ Use Gmail App Password (NOT normal password)
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = 587;
+
+        //Recipients
+        $mail->setFrom("mrkanyi8@gmail.com", "ELMS Supervisor");
+        $mail->addAddress($to);
+
+        //Content
+        $mail->isHTML(true);
+        $mail->Subject = $subject;
+        $mail->Body    = $body;
+
+        $mail->send();
+        return true;
+    } catch (Exception $e) {
+        error_log("Mail error: {$mail->ErrorInfo}");
+        return false;
+    }
+}
+
+// ✅ Require supervisor login
 if (strlen($_SESSION['emplogin']) == 0) {
     header('location: ../index.php');
     exit();
 } else {
-    // ✅ Check if logged-in employee is a Supervisor
+    // ✅ Check if logged-in user is a Supervisor
     $email = $_SESSION['emplogin'];
     $sql = "SELECT Role FROM tblemployees WHERE EmailId = :email LIMIT 1";
     $query = $dbh->prepare($sql);
@@ -17,31 +58,32 @@ if (strlen($_SESSION['emplogin']) == 0) {
     $user = $query->fetch(PDO::FETCH_OBJ);
 
     if (!$user || strtolower($user->Role) !== 'supervisor') {
-        // Not a supervisor → block access
         header('location: ../index.php');
         exit();
     }
 
-    // ✅ Mark notification as read
-    $isread = 1;
+    // ✅ Mark leave as read
     $did = intval($_GET['leaveid']);
-    date_default_timezone_set('Asia/Kolkata');
-    $admremarkdate = date('Y-m-d G:i:s');
-    $sql = "UPDATE tblleaves SET IsRead=:isread WHERE id=:did";
-    $query = $dbh->prepare($sql);
-    $query->bindParam(':isread', $isread, PDO::PARAM_INT);
-    $query->bindParam(':did', $did, PDO::PARAM_INT);
-    $query->execute();
+    if ($did > 0) {
+        $isread = 1;
+        $sql = "UPDATE tblleaves SET IsRead=:isread WHERE id=:did";
+        $query = $dbh->prepare($sql);
+        $query->bindParam(':isread', $isread, PDO::PARAM_INT);
+        $query->bindParam(':did', $did, PDO::PARAM_INT);
+        $query->execute();
+    }
 
-    // ✅ Action taken on leave
+    // ✅ Supervisor action (Approve / Reject)
     if (isset($_POST['update'])) {
-        $did = intval($_GET['leaveid']);
         $description = $_POST['description'];
         $status = $_POST['status'];
-        $admremarkdate = date('Y-m-d G:i:s');
+        date_default_timezone_set('Africa/Nairobi');
+        $admremarkdate = date('Y-m-d H:i:s');
 
         $sql = "UPDATE tblleaves 
-                SET AdminRemark=:description, Status=:status, AdminRemarkDate=:admremarkdate 
+                SET AdminRemark=:description, 
+                    Status=:status, 
+                    AdminRemarkDate=:admremarkdate 
                 WHERE id=:did";
         $query = $dbh->prepare($sql);
         $query->bindParam(':description', $description, PDO::PARAM_STR);
@@ -50,31 +92,42 @@ if (strlen($_SESSION['emplogin']) == 0) {
         $query->bindParam(':did', $did, PDO::PARAM_INT);
         $query->execute();
 
-        $msg = "Leave updated Successfully";
+        // ✅ Send email to employee
+        $empSql = "SELECT EmailId, FirstName FROM tblemployees 
+                   WHERE id=(SELECT empid FROM tblleaves WHERE id=:did)";
+        $empQ = $dbh->prepare($empSql);
+        $empQ->bindParam(':did', $did, PDO::PARAM_INT);
+        $empQ->execute();
+        $emp = $empQ->fetch(PDO::FETCH_OBJ);
+
+        if ($emp) {
+            $statusText = ($status == 1) ? "Approved" : "Rejected";
+            $subject = "Leave Application Update";
+            $body = "Dear {$emp->FirstName},<br><br>
+                     Your leave request has been <b>{$statusText}</b> by Supervisor.<br>
+                     Remark: {$description}<br><br>
+                     Regards,<br>Supervisor Team";
+            sendMail($emp->EmailId, $subject, $body);
+        }
+
+        $msg = "Leave updated successfully";
     }
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Supervisor | Leave Details</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1"/>
     <meta charset="UTF-8">
+    <title>Supervisor | Leave Details</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
-    <!-- Styles (absolute paths) -->
+    <!-- Styles -->
     <link rel="stylesheet" href="/elms/assets/plugins/materialize/css/materialize.min.css"/>
-    <link rel="stylesheet" href="/elms/assets/plugins/materialize/css/materialize.css"/>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="/elms/assets/plugins/material-preloader/css/materialPreloader.min.css"/>
     <link rel="stylesheet" href="/elms/assets/plugins/datatables/css/jquery.dataTables.min.css"/>
-    <link rel="stylesheet" href="/elms/assets/plugins/google-code-prettify/prettify.css"/>
     <link rel="stylesheet" href="/elms/assets/css/alpha.min.css"/>
     <link rel="stylesheet" href="/elms/assets/css/custom.css"/>
     <link rel="stylesheet" href="/elms/assets/css/style.css"/>
-
-    <style>
-        .errorWrap {padding:10px;margin:0 0 20px 0;background:#fff;border-left:4px solid #dd3d36;box-shadow:0 1px 1px rgba(0,0,0,.1);}
-        .succWrap {padding:10px;margin:0 0 20px 0;background:#fff;border-left:4px solid #5cb85c;box-shadow:0 1px 1px rgba(0,0,0,.1);}
-    </style>
 </head>
 <body>
     <?php include '../includes/header.php'; ?>
@@ -96,10 +149,9 @@ if (strlen($_SESSION['emplogin']) == 0) {
                         <table class="display responsive-table">
                             <tbody>
                             <?php
-                            $lid = intval($_GET['leaveid']);
                             $sql = "SELECT tblleaves.id as lid,
                                            tblemployees.FirstName, tblemployees.LastName,
-                                           tblemployees.EmpId, tblemployees.id, tblemployees.Gender,
+                                           tblemployees.EmpId, tblemployees.Gender,
                                            tblemployees.Phonenumber, tblemployees.EmailId,
                                            tblleaves.LeaveType, tblleaves.ToDate, tblleaves.FromDate,
                                            tblleaves.Description, tblleaves.PostingDate,
@@ -108,7 +160,7 @@ if (strlen($_SESSION['emplogin']) == 0) {
                                     JOIN tblemployees ON tblleaves.empid=tblemployees.id
                                     WHERE tblleaves.id=:lid";
                             $query = $dbh->prepare($sql);
-                            $query->bindParam(':lid', $lid, PDO::PARAM_INT);
+                            $query->bindParam(':lid', $did, PDO::PARAM_INT);
                             $query->execute();
                             $results = $query->fetchAll(PDO::FETCH_OBJ);
 
@@ -129,7 +181,6 @@ if (strlen($_SESSION['emplogin']) == 0) {
                                     <td><?php echo htmlentities($result->EmailId); ?></td>
                                     <td><b>Contact :</b></td>
                                     <td><?php echo htmlentities($result->Phonenumber); ?></td>
-                                    <td colspan="2"></td>
                                 </tr>
                                 <tr>
                                     <td><b>Leave Type :</b></td>
@@ -149,39 +200,38 @@ if (strlen($_SESSION['emplogin']) == 0) {
                                         <?php if ($stats == 1) { ?>
                                             <span style="color: green">Approved</span>
                                         <?php } elseif ($stats == 2) { ?>
-                                            <span style="color: red">Not Approved</span>
+                                            <span style="color: red">Rejected</span>
                                         <?php } else { ?>
-                                            <span style="color: blue">Waiting for approval</span>
+                                            <span style="color: blue">Waiting for Supervisor approval</span>
                                         <?php } ?>
                                     </td>
                                 </tr>
                                 <tr>
-                                    <td><b>Supervisor Remark :</b></td>
-                                    <td colspan="5"><?php echo $result->AdminRemark == "" ? "Waiting for Approval" : htmlentities($result->AdminRemark); ?></td>
+                                    <td><b>Supervisor Remark:</b></td>
+                                    <td colspan="5"><?php echo $result->AdminRemark ? htmlentities($result->AdminRemark) : "None"; ?></td>
                                 </tr>
                                 <tr>
-                                    <td><b>Action Date :</b></td>
-                                    <td colspan="5"><?php echo $result->AdminRemarkDate == "" ? "NA" : htmlentities($result->AdminRemarkDate); ?></td>
+                                    <td><b>Supervisor Action Date:</b></td>
+                                    <td colspan="5"><?php echo $result->AdminRemarkDate ? htmlentities($result->AdminRemarkDate) : "NA"; ?></td>
                                 </tr>
+
                                 <?php if ($stats == 0) { ?>
                                 <tr>
                                     <td colspan="6">
-                                        <a class="modal-trigger waves-effect waves-light btn" href="#modal1">Take Action</a>
-                                        <form name="supervisoraction" method="post">
-                                            <div id="modal1" class="modal modal-fixed-footer" style="height: 60%">
-                                                <div class="modal-content" style="width:90%">
-                                                    <h4>Leave Action</h4>
+                                        <a class="modal-trigger btn" href="#actionModal">Take Action</a>
+                                        <form method="post">
+                                            <div id="actionModal" class="modal">
+                                                <div class="modal-content">
+                                                    <h4>Supervisor Action</h4>
                                                     <select class="browser-default" name="status" required>
-                                                        <option value="">Choose your option</option>
-                                                        <option value="1">Approved</option>
-                                                        <option value="2">Not Approved</option>
+                                                        <option value="">Choose</option>
+                                                        <option value="1">Approve</option>
+                                                        <option value="2">Reject</option>
                                                     </select>
-                                                    <p>
-                                                        <textarea id="textarea1" name="description" class="materialize-textarea" placeholder="Description" maxlength="500" required></textarea>
-                                                    </p>
+                                                    <textarea name="description" class="materialize-textarea" placeholder="Remark" required></textarea>
                                                 </div>
-                                                <div class="modal-footer" style="width:90%">
-                                                    <input type="submit" class="waves-effect waves-light btn blue" name="update" value="Submit">
+                                                <div class="modal-footer">
+                                                    <input type="submit" name="update" class="btn blue" value="Submit">
                                                 </div>
                                             </div>
                                         </form>
@@ -191,22 +241,28 @@ if (strlen($_SESSION['emplogin']) == 0) {
                             <?php } } ?>
                             </tbody>
                         </table>
+
                     </div>
                 </div>
             </div>
         </div>
     </main>
 
+    <div class="left-sidebar-hover"></div>
+
     <!-- Scripts -->
     <script src="/elms/assets/plugins/jquery/jquery-2.2.0.min.js"></script>
     <script src="/elms/assets/plugins/materialize/js/materialize.min.js"></script>
     <script src="/elms/assets/plugins/material-preloader/js/materialPreloader.min.js"></script>
-    <script src="/elms/assets/plugins/jquery-blockui/jquery.blockui.js"></script>
     <script src="/elms/assets/plugins/datatables/js/jquery.dataTables.min.js"></script>
     <script src="/elms/assets/js/alpha.min.js"></script>
     <script src="/elms/assets/js/pages/table-data.js"></script>
-    <script src="/elms/assets/js/pages/ui-modals.js"></script>
-    <script src="/elms/assets/plugins/google-code-prettify/prettify.js"></script>
+    <script>
+        $(document).ready(function(){
+            $('.modal').modal();
+            $('select').formSelect();
+        });
+    </script>
 </body>
 </html>
 <?php } ?>
