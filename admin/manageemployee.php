@@ -1,159 +1,221 @@
 <?php
+// admin/manageemployee.php
 session_start();
-error_reporting(0);
-include 'includes/config.php';
-if (strlen($_SESSION['alogin']) == 0) {
-    header('location:index.php');
-} else {
-// code for Inactive  employee
-    if (isset($_GET['inid'])) {
-        $id = $_GET['inid'];
-        $status = 0;
-        $sql = "update tblemployees set Status=:status  WHERE id=:id";
-        $query = $dbh->prepare($sql);
-        $query->bindParam(':id', $id, PDO::PARAM_STR);
-        $query->bindParam(':status', $status, PDO::PARAM_STR);
-        $query->execute();
-        header('location:manageemployee.php');
+
+// show errors while debugging — remove or tone down in production
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// include config (make path robust)
+require_once __DIR__ . '/../includes/config.php';
+
+// ensure admin is logged in (adjust session key if your project uses a different one)
+if (!isset($_SESSION['alogin']) || empty($_SESSION['alogin'])) {
+    // redirect to the root login page (adjust if your login is in admin/index.php)
+    header('Location: ../index.php');
+    exit();
+}
+
+// ====================
+// Handle actions: activate / deactivate / delete
+// ====================
+try {
+    if (isset($_GET['inid'])) { // deactivate
+        $id = intval($_GET['inid']);
+        $sql = "UPDATE tblemployees SET Status = 0 WHERE id = :id";
+        $q = $dbh->prepare($sql);
+        $q->bindParam(':id', $id, PDO::PARAM_INT);
+        $q->execute();
+        header('Location: manageemployee.php');
+        exit();
     }
 
-//code for active employee
-    if (isset($_GET['id'])) {
-        $id = $_GET['id'];
-        $status = 1;
-        $sql = "update tblemployees set Status=:status  WHERE id=:id";
-        $query = $dbh->prepare($sql);
-        $query->bindParam(':id', $id, PDO::PARAM_STR);
-        $query->bindParam(':status', $status, PDO::PARAM_STR);
-        $query->execute();
-        header('location:manageemployee.php');
+    if (isset($_GET['id'])) { // activate
+        $id = intval($_GET['id']);
+        $sql = "UPDATE tblemployees SET Status = 1 WHERE id = :id";
+        $q = $dbh->prepare($sql);
+        $q->bindParam(':id', $id, PDO::PARAM_INT);
+        $q->execute();
+        header('Location: manageemployee.php');
+        exit();
     }
-    ?>
+
+    if (isset($_GET['delid'])) { // delete
+        $id = intval($_GET['delid']);
+        $sql = "DELETE FROM tblemployees WHERE id = :id";
+        $q = $dbh->prepare($sql);
+        $q->bindParam(':id', $id, PDO::PARAM_INT);
+        $q->execute();
+        header('Location: manageemployee.php');
+        exit();
+    }
+} catch (Exception $e) {
+    // log error and continue — show user-friendly message later
+    error_log("Employee action error: " . $e->getMessage());
+}
+
+// ====================
+// Search & filter
+// ====================
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$status_filter = isset($_GET['status']) ? $_GET['status'] : '';
+
+// Build SQL
+$sql = "SELECT id, EmpId, FirstName, LastName, EmailId, Department, RegDate, Status
+        FROM tblemployees
+        WHERE 1 = 1";
+$params = [];
+
+if ($search !== '') {
+    $sql .= " AND (FirstName LIKE :s OR LastName LIKE :s OR EmailId LIKE :s OR Department LIKE :s)";
+    $params[':s'] = '%' . $search . '%';
+}
+
+if ($status_filter === '0' || $status_filter === '1') {
+    $sql .= " AND Status = :status_filter";
+    $params[':status_filter'] = (int)$status_filter;
+}
+
+$sql .= " ORDER BY RegDate DESC";
+
+try {
+    $stmt = $dbh->prepare($sql);
+    $stmt->execute($params);
+    $results = $stmt->fetchAll(PDO::FETCH_OBJ);
+    $rowCount = $stmt->rowCount();
+} catch (Exception $e) {
+    // fatal DB error
+    $results = [];
+    $rowCount = 0;
+    $dbError = $e->getMessage();
+    error_log("ManageEmployee DB error: " . $dbError);
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
-    <head>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Admin — Manage Employees</title>
 
-        <!-- Title -->
-        <title>Admin | Manage Employees</title>
+    <!-- Bootstrap 5 (CDN) & Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
 
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-        <meta charset="UTF-8">
-        <meta name="description" content="Responsive Admin Dashboard Template" />
-        <meta name="keywords" content="admin,dashboard" />
-        <meta name="author" content="Steelcoders" />
-
-        <!-- Styles -->
-        <link type="text/css" rel="stylesheet" href="../assets/plugins/materialize/css/materialize.min.css"/>
-         <link type="text/css" rel="stylesheet" href="../assets/plugins/materialize/css/materialize.css"/>
-        <link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-        <link href="../assets/plugins/material-preloader/css/materialPreloader.min.css" rel="stylesheet">
-        <link href="../assets/plugins/datatables/css/jquery.dataTables.min.css" rel="stylesheet">
-
-
-        <!-- Theme Styles -->
-        <link href="../assets/css/alpha.min.css" rel="stylesheet" type="text/css"/>
-        <link href="../assets/css/custom.css" rel="stylesheet" type="text/css"/>
-         <link href="../assets/css/style.css" rel="stylesheet" type="text/css"/>
-<style>
-        .errorWrap {
-    padding: 10px;
-    margin: 0 0 20px 0;
-    background: #fff;
-    border-left: 4px solid #dd3d36;
-    -webkit-box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-    box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-}
-.succWrap{
-    padding: 10px;
-    margin: 0 0 20px 0;
-    background: #fff;
-    border-left: 4px solid #5cb85c;
-    -webkit-box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-    box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-}
-        </style>
-    </head>
-    <body>
-       <?php include 'includes/header.php';?>
-
-       <?php include 'includes/sidebar.php';?>
-            <main class="mn-inner">
-                <div class="row">
-                    <div class="col s12">
-                        <div class="page-title" style="color: green;">Manage Employes</div>
-                    </div>
-
-                    <div class="col s12 m12 l12">
-                        <div class="card">
-                            <div class="card-content">
-
-                                <?php if ($msg) {?><div class="succWrap"><strong>SUCCESS</strong> : <?php echo htmlentities($msg); ?> </div><?php }?>
-                                <table id="example" class="display responsive-table ">
-                                    <thead>
-                                        <tr>
-                                            <th style="color: red;">Sl no</th>
-                                            <th style="color: red;">Emp Id</th>
-                                            <th style="color: red;">Emp Name</th>
-                                            <th style="color: red;">Department</th>
-                                             <th style="color: red;">Status</th>
-                                             <th style="color: red;">Reg Date</th>
-                                            <th style="color: red;">Action</th>
-                                        </tr>
-                                    </thead>
-
-                                    <tbody>
-<?php $sql = "SELECT EmpId,FirstName,LastName,Department,Status,RegDate,id from  tblemployees";
-    $query = $dbh->prepare($sql);
-    $query->execute();
-    $results = $query->fetchAll(PDO::FETCH_OBJ);
-    $cnt = 1;
-    if ($query->rowCount() > 0) {
-        foreach ($results as $result) {?>
-                                        <tr>
-                                            <td> <?php echo htmlentities($cnt); ?></td>
-                                            <td><?php echo htmlentities($result->EmpId); ?></td>
-                                            <td><?php echo htmlentities($result->FirstName); ?>&nbsp;<?php echo htmlentities($result->LastName); ?></td>
-                                            <td><?php echo htmlentities($result->Department); ?></td>
-                                             <td><?php $stats = $result->Status;
-            if ($stats) {
-                ?>
-                                                 <a class="waves-effect waves-green btn-flat m-b-xs">Active</a>
-                                                 <?php } else {?>
-                                                 <a class="waves-effect waves-red btn-flat m-b-xs">Inactive</a>
-                                                 <?php }?>
-
-
-                                             </td>
-                                              <td><?php echo htmlentities($result->RegDate); ?></td>
-                                            <td><a href="editemployee.php?empid=<?php echo htmlentities($result->id); ?>"><i class="material-icons">mode_edit</i></a>
-                                        <?php if ($result->Status == 1) {?>
-<a href="manageemployee.php?inid=<?php echo htmlentities($result->id); ?>" onclick="return confirm('Are you sure you want to inactive this Employe?');"" > <i class="material-icons" title="Inactive">clear</i>
-<?php } else {?>
-
-                                            <a href="manageemployee.php?id=<?php echo htmlentities($result->id); ?>" onclick="return confirm('Are you sure you want to active this employee?');""><i class="material-icons" title="Active">done</i>
-                                            <?php }?> </td>
-                                        </tr>
-                                         <?php $cnt++;}}?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </main>
-
+    <!-- Optional: your custom CSS -->
+    <link rel="stylesheet" href="../assets/css/modern.css" />
+    <style>
+        .table-modern { font-size: .95rem; }
+        .badge-active { background: #28a745; color: #fff; }
+        .badge-inactive { background: #dc3545; color: #fff; }
+        .alert-debug { background: #fff3cd; border-color: #ffeeba; color:#856404; }
+    </style>
+</head>
+<body>
+<div class="container-fluid my-4">
+    <div class="row">
+        <div class="col-12 mb-3 d-flex justify-content-between align-items-center">
+            <div>
+                <h3 class="mb-0">Manage Employees</h3>
+                <small class="text-muted">Search, filter and administer employees</small>
+            </div>
+            <div>
+                <a href="addemployee.php" class="btn btn-primary"><i class="fas fa-user-plus me-1"></i> Add Employee</a>
+            </div>
         </div>
-        <div class="left-sidebar-hover"></div>
+    </div>
 
-        <!-- Javascripts -->
-        <script src="../assets/plugins/jquery/jquery-2.2.0.min.js"></script>
-        <script src="../assets/plugins/materialize/js/materialize.min.js"></script>
-        <script src="../assets/plugins/material-preloader/js/materialPreloader.min.js"></script>
-        <script src="../assets/plugins/jquery-blockui/jquery.blockui.js"></script>
-        <script src="../assets/plugins/datatables/js/jquery.dataTables.min.js"></script>
-        <script src="../assets/js/alpha.min.js"></script>
-        <script src="../assets/js/pages/table-data.js"></script>
+    <!-- Search & Filter -->
+    <form method="get" class="row g-2 mb-4">
+        <div class="col-md-5">
+            <input type="text" name="search" value="<?php echo htmlentities($search); ?>" class="form-control" placeholder="Search by name, email or department">
+        </div>
+        <div class="col-md-3">
+            <select name="status" class="form-select">
+                <option value="">All statuses</option>
+                <option value="1" <?php if ($status_filter === '1') echo 'selected'; ?>>Active</option>
+                <option value="0" <?php if ($status_filter === '0') echo 'selected'; ?>>Inactive</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <button class="btn btn-outline-primary" type="submit"><i class="fas fa-search"></i> Search</button>
+            <a href="manageemployee.php" class="btn btn-outline-secondary ms-2"><i class="fas fa-undo"></i> Reset</a>
+        </div>
+    </form>
 
-    </body>
+    <?php if (!empty($dbError)) { ?>
+        <div class="alert alert-danger">Database error: <?php echo htmlentities($dbError); ?></div>
+    <?php } ?>
+
+    <?php if ($rowCount > 0) { ?>
+        <div class="card shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-modern table-hover mb-0">
+                        <thead class="table-light">
+                        <tr>
+                            <th>#</th>
+                            <th>Employee ID</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Department</th>
+                            <th>Registered</th>
+                            <th>Status</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <?php
+                        $cnt = 1;
+                        foreach ($results as $row) {
+                            $statusLabel = ($row->Status == 1)
+                                ? '<span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Active</span>'
+                                : '<span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i>Inactive</span>';
+                            ?>
+                            <tr>
+                                <td><?php echo $cnt++; ?></td>
+                                <td><?php echo htmlentities($row->EmpId); ?></td>
+                                <td><?php echo htmlentities($row->FirstName . ' ' . $row->LastName); ?></td>
+                                <td><?php echo htmlentities($row->EmailId); ?></td>
+                                <td><?php echo htmlentities($row->Department); ?></td>
+                                <td><?php echo htmlentities($row->RegDate); ?></td>
+                                <td><?php echo $statusLabel; ?></td>
+                                <td class="text-center">
+                                    <div class="btn-group" role="group">
+                                        <a href="editemployee.php?empid=<?php echo urlencode($row->id); ?>" class="btn btn-sm btn-warning" title="Edit"><i class="fas fa-edit"></i></a>
+
+                                        <?php if ($row->Status == 1) { ?>
+                                            <a href="manageemployee.php?inid=<?php echo urlencode($row->id); ?>" class="btn btn-sm btn-secondary" onclick="return confirm('Deactivate this employee?');" title="Deactivate"><i class="fas fa-user-slash"></i></a>
+                                        <?php } else { ?>
+                                            <a href="manageemployee.php?id=<?php echo urlencode($row->id); ?>" class="btn btn-sm btn-success" onclick="return confirm('Activate this employee?');" title="Activate"><i class="fas fa-user-check"></i></a>
+                                        <?php } ?>
+
+                                        <a href="manageemployee.php?delid=<?php echo urlencode($row->id); ?>" class="btn btn-sm btn-danger" onclick="return confirm('Permanently delete this employee?');" title="Delete"><i class="fas fa-trash-alt"></i></a>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php } // foreach ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    <?php } else { ?>
+        <div class="card shadow-sm">
+            <div class="card-body text-center">
+                <p class="mb-1"><strong>No employees found</strong></p>
+                <p class="text-muted mb-3">Try clearing the search/filter or add new employees.</p>
+                <a href="addemployee.php" class="btn btn-primary"><i class="fas fa-user-plus me-1"></i> Add Employee</a>
+            </div>
+        </div>
+    <?php } ?>
+
+    <div class="mt-3">
+        <small class="text-muted">Tip: if you expect employees but none appear, check the database connection (includes/config.php) and confirm `tblemployees` contains rows.</small>
+    </div>
+</div>
+
+<!-- JS (Bootstrap) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
 </html>
-<?php }?>

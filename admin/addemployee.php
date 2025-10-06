@@ -1,7 +1,6 @@
 <?php
 session_start();
-error_reporting(0);
-include 'includes/config.php';
+include('includes/config.php');
 if (strlen($_SESSION['alogin']) == 0) {
     header('location:index.php');
 } else {
@@ -11,34 +10,31 @@ if (strlen($_SESSION['alogin']) == 0) {
     $query->execute();
     $supervisors = $query->fetchAll(PDO::FETCH_OBJ);
 
-    // Auto-generate next EmpId (enumerate)
+    // Auto-generate next EmpId
     $sql = "SELECT MAX(EmpId) AS maxid FROM tblemployees";
     $query = $dbh->prepare($sql);
     $query->execute();
     $row = $query->fetch(PDO::FETCH_OBJ);
-    $nextEmpId = $row && $row->maxid ? intval($row->maxid) + 1 : 1001; // Start from 1001 if table is empty
+    $nextEmpId = $row && $row->maxid ? intval($row->maxid) + 1 : 1001;
 
     if (isset($_POST['add'])) {
-        // Use auto-generated EmpId if not provided
         $empid = !empty($_POST['empcode']) ? $_POST['empcode'] : $nextEmpId;
         $fname = $_POST['firstName'];
         $lname = $_POST['lastName'];
         $email = $_POST['email'];
         $password = md5($_POST['password']);
         $gender = $_POST['gender'];
-        $dob = $_POST['dob'];
+        $dob = !empty($_POST['dob']) ? $_POST['dob'] : date('Y-m-d'); // Default to today if missing
         $department = $_POST['department'];
         $address = $_POST['address'];
-        $city = $_POST['city'];
-        $country = $_POST['country'];
+        $city = !empty($_POST['city']) ? $_POST['city'] : 'N/A';
+        $country = !empty($_POST['country']) ? $_POST['country'] : 'N/A';
         $mobileno = $_POST['mobileno'];
         $status = 1;
-
-        // New columns
         $role = isset($_POST['role']) ? $_POST['role'] : 'Employee';
         $supervisor_id = !empty($_POST['supervisor_id']) ? intval($_POST['supervisor_id']) : null;
 
-        $sql = "INSERT INTO tblemployees(EmpId,FirstName,LastName,EmailId,Password,Gender,Dob,Department,Address,City,Country,Phonenumber,Status,role,supervisor_id) 
+        $sql = "INSERT INTO tblemployees (EmpId,FirstName,LastName,EmailId,Password,Gender,Dob,Department,Address,City,Country,Phonenumber,Status,role,supervisor_id)
                 VALUES(:empid,:fname,:lname,:email,:password,:gender,:dob,:department,:address,:city,:country,:mobileno,:status,:role,:supervisor_id)";
         $query = $dbh->prepare($sql);
         $query->bindParam(':empid', $empid, PDO::PARAM_STR);
@@ -62,230 +58,164 @@ if (strlen($_SESSION['alogin']) == 0) {
         }
         $query->execute();
         $lastInsertId = $dbh->lastInsertId();
+
         if ($lastInsertId) {
-            $msg = "Employee record added Successfully";
+            $msg = "✅ Employee record added successfully!";
         } else {
-            $error = "Something went wrong. Please try again";
+            $error = "⚠️ Something went wrong. Please try again.";
         }
     }
     ?>
-
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title>Admin | Add Employee</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-        <meta charset="UTF-8">
-        <meta name="description" content="Responsive Admin Dashboard Template" />
-        <meta name="keywords" content="admin,dashboard" />
-        <meta name="author" content="Steelcoders" />
-        <link type="text/css" rel="stylesheet" href="../assets/plugins/materialize/css/materialize.min.css"/>
-        <link type="text/css" rel="stylesheet" href="../assets/plugins/materialize/css/materialize.css"/>
-        <link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-        <link href="../assets/plugins/material-preloader/css/materialPreloader.min.css" rel="stylesheet">
-        <link href="../assets/css/alpha.min.css" rel="stylesheet" type="text/css"/>
-        <link href="../assets/css/custom.css" rel="stylesheet" type="text/css"/>
-        <link href="../assets/css/style.css" rel="stylesheet" type="text/css"/>
-        <style>
-            .errorWrap {
-                padding: 10px;
-                margin: 0 0 20px 0;
-                background: #fff;
-                border-left: 4px solid #dd3d36;
-                -webkit-box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-                box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-            }
-            .succWrap{
-                padding: 10px;
-                margin: 0 0 20px 0;
-                background: #fff;
-                border-left: 4px solid #5cb85c;
-                -webkit-box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-                box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-            }
-        </style>
-        <script type="text/javascript">
-            function valid()
-            {
-                if(document.addemp.password.value!= document.addemp.confirmpassword.value)
-                {
-                    alert("New Password and Confirm Password Field do not match  !!");
-                    document.addemp.confirmpassword.focus();
-                    return false;
-                }
-                return true;
-            }
-        </script>
-        <script>
-            function checkAvailabilityEmpid() {
-                $("#loaderIcon").show();
-                jQuery.ajax({
-                    url: "check_availability.php",
-                    data:'empcode='+$("#empcode").val(),
-                    type: "POST",
-                    success:function(data){
-                        $("#empid-availability").html(data);
-                        $("#loaderIcon").hide();
-                    },
-                    error:function (){}
-                });
-            }
-        </script>
-        <script>
-            function checkAvailabilityEmailid() {
-                $("#loaderIcon").show();
-                jQuery.ajax({
-                    url: "check_availability.php",
-                    data:'emailid='+$("#email").val(),
-                    type: "POST",
-                    success:function(data){
-                        $("#emailid-availability").html(data);
-                        $("#loaderIcon").hide();
-                    },
-                    error:function (){}
-                });
-            }
-        </script>
-        <script>
-            function toggleSupervisorDropdown() {
-                var role = document.getElementById('role').value;
-                document.getElementById('supervisorDropdown').style.display = (role === 'Employee') ? 'block' : 'none';
-            }
-            window.onload = toggleSupervisorDropdown;
-        </script>
-    </head>
-    <body>
-        <?php include 'includes/header.php';?>
-        <?php include 'includes/sidebar.php';?>
-        <main class="mn-inner">
-            <div class="row">
-                <div class="col s12">
-                    <div class="page-title" style="color: green;">Add employee</div>
-                </div>
-                <div class="col s12 m12 l12">
-                    <div class="card">
-                        <div class="card-content">
-                            <form id="example-form" method="post" name="addemp">
-                                <div>
-                                    <section>
-                                        <div class="wizard-content">
-                                            <div class="row">
-                                                <div class="col m6">
-                                                    <div class="row">
-                                                        <?php if ($error) {?><div class="errorWrap"><strong>ERROR</strong>:<?php echo htmlentities($error); ?> </div><?php } else if ($msg) {?><div class="succWrap"><strong>SUCCESS</strong>:<?php echo htmlentities($msg); ?> </div><?php }?>
-                                                        <div class="input-field col  s12">
-                                                            <label for="empcode">Employee Code (auto-generated if left blank)</label>
-                                                            <input  name="empcode" id="empcode" onBlur="checkAvailabilityEmpid()" type="text" autocomplete="off" value="<?php echo $nextEmpId; ?>">
-                                                            <span id="empid-availability" style="font-size:12px;"></span>
-                                                        </div>
-                                                        <div class="input-field col m6 s12">
-                                                            <label for="firstName">First name</label>
-                                                            <input id="firstName" name="firstName" type="text" required>
-                                                        </div>
-                                                        <div class="input-field col m6 s12">
-                                                            <label for="lastName">Last name</label>
-                                                            <input id="lastName" name="lastName" type="text" autocomplete="off" required>
-                                                        </div>
-                                                        <div class="input-field col s12">
-                                                            <label for="email">Email</label>
-                                                            <input  name="email" type="email" id="email" onBlur="checkAvailabilityEmailid()" autocomplete="off" required>
-                                                            <span id="emailid-availability" style="font-size:12px;"></span>
-                                                        </div>
-                                                        <div class="input-field col s12">
-                                                            <label for="password">Password</label>
-                                                            <input id="password" name="password" type="password" autocomplete="off" required>
-                                                        </div>
-                                                        <div class="input-field col s12">
-                                                            <label for="confirm">Confirm password</label>
-                                                            <input id="confirm" name="confirmpassword" type="password" autocomplete="off" required>
-                                                        </div>
-                                                        <div class="input-field col s12">
-                                                            <label for="role" style="top:-20px;">Role</label>
-                                                            <select name="role" id="role" required onchange="toggleSupervisorDropdown()">
-                                                                <option value="Employee" selected>Employee</option>
-                                                                <option value="Supervisor">Supervisor</option>
-                                                                <option value="Admin">Admin</option>
-                                                            </select>
-                                                        </div>
-                                                        <div class="input-field col s12" id="supervisorDropdown" style="display:none;">
-                                                            <label for="supervisor_id" style="top:-20px;">Supervisor</label>
-                                                            <select name="supervisor_id" id="supervisor_id">
-                                                                <option value="">-- Select Supervisor --</option>
-                                                                <?php foreach ($supervisors as $sup): ?>
-                                                                    <option value="<?php echo $sup->id; ?>">
-                                                                        <?php echo htmlentities($sup->FirstName . ' ' . $sup->LastName); ?>
-                                                                    </option>
-                                                                <?php endforeach; ?>
-                                                            </select>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col m6">
-                                                    <div class="row">
-                                                        <div class="input-field col m6 s12">
-                                                            <select  name="gender" autocomplete="off">
-                                                                <option value="">Gender...</option>
-                                                                <option value="Male">Male</option>
-                                                                <option value="Female">Female</option>
-                                                                <option value="Other">Other</option>
-                                                            </select>
-                                                        </div>
-                                                        <div class="input-field col m6 s12">
-                                                            <label for="birthdate">Birthdate</label>
-                                                            <input id="birthdate" name="dob" type="date" class="datepicker" autocomplete="off" >
-                                                        </div>
-                                                        <div class="input-field col m6 s12">
-                                                            <select  name="department" autocomplete="off">
-                                                                <option value="">Department...</option>
-                                                                <?php
-                                                                $sql = "SELECT DepartmentName from tbldepartments";
-                                                                $query = $dbh->prepare($sql);
-                                                                $query->execute();
-                                                                $results = $query->fetchAll(PDO::FETCH_OBJ);
-                                                                if ($query->rowCount() > 0) {
-                                                                    foreach ($results as $result) {?>
-                                                                        <option value="<?php echo htmlentities($result->DepartmentName); ?>"><?php echo htmlentities($result->DepartmentName); ?></option>
-                                                                <?php }}?>
-                                                            </select>
-                                                        </div>
-                                                        <div class="input-field col m6 s12">
-                                                            <label for="country">Country</label>
-                                                            <input id="country" name="country" type="text" autocomplete="off" required>
-                                                        </div>
-                                                        <div class="input-field col m6 s12">
-                                                            <label for="city">City/Town</label>
-                                                            <input id="city" name="city" type="text" autocomplete="off" required>
-                                                        </div>
-                                                        <div class="input-field col m6 s12">
-                                                            <label for="address">Address</label>
-                                                            <input id="address" name="address" type="text" autocomplete="off" required>
-                                                        </div>
-                                                        <div class="input-field col s12">
-                                                            <label for="phone">Mobile number</label>
-                                                            <input id="phone" name="mobileno" type="tel" maxlength="10" autocomplete="off" required>
-                                                        </div>
-                                                        <div class="input-field col s12" style="margin-top: 30px;">
-                                                            <button type="submit" name="add" onclick="return valid();" id="add" class="waves-effect waves-light btn indigo m-b-xs">ADD</button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </section>
-                                </div>
-                            </form>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Employee | ELMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../assets/css/modern.css">
+</head>
+<body>
+<div class="dashboard-container">
+    <?php include('includes/sidebar.php'); ?>
+
+    <div class="main-content">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="h3 mb-1">Add New Employee</h1>
+                <p class="text-muted mb-0">Register a new employee in the system</p>
+            </div>
+            <div>
+                <a href="manageemployee.php" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow-sm p-4">
+                    <?php if(isset($error)) { ?>
+                        <div class="alert alert-danger"><?php echo htmlentities($error); ?></div>
+                    <?php } elseif(isset($msg)) { ?>
+                        <div class="alert alert-success"><?php echo htmlentities($msg); ?></div>
+                    <?php } ?>
+
+                    <form method="post" name="addemp">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">First Name *</label>
+                                <input type="text" class="form-control" name="firstName" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Last Name *</label>
+                                <input type="text" class="form-control" name="lastName" required>
+                            </div>
                         </div>
-                    </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email *</label>
+                                <input type="email" class="form-control" name="email" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Password *</label>
+                                <input type="password" class="form-control" name="password" required>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Gender</label>
+                                <select class="form-select" name="gender">
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Date of Birth</label>
+                                <input type="date" class="form-control" name="dob">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Department *</label>
+                            <select class="form-select" name="department" required>
+                                <option value="">Select Department</option>
+                                <?php
+                                $sql = "SELECT DepartmentName FROM tbldepartments";
+                                $query = $dbh->prepare($sql);
+                                $query->execute();
+                                $departments = $query->fetchAll(PDO::FETCH_OBJ);
+                                foreach ($departments as $department) { ?>
+                                    <option value="<?php echo htmlentities($department->DepartmentName); ?>">
+                                        <?php echo htmlentities($department->DepartmentName); ?>
+                                    </option>
+                                <?php } ?>
+                            </select>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">City</label>
+                                <input type="text" class="form-control" name="city">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Country</label>
+                                <input type="text" class="form-control" name="country">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Phone Number</label>
+                                <input type="text" class="form-control" name="mobileno">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Address</label>
+                            <textarea class="form-control" name="address" rows="3"></textarea>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Role</label>
+                                <select class="form-select" name="role">
+                                    <option value="Employee">Employee</option>
+                                    <option value="Supervisor">Supervisor</option>
+                                    <option value="Admin">Admin</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Assign Supervisor (optional)</label>
+                                <select class="form-select" name="supervisor_id">
+                                    <option value="">-- None --</option>
+                                    <?php foreach($supervisors as $sup) { ?>
+                                        <option value="<?php echo $sup->id; ?>">
+                                            <?php echo htmlentities($sup->FirstName . " " . $sup->LastName); ?>
+                                        </option>
+                                    <?php } ?>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2">
+                            <a href="manageemployee.php" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Cancel
+                            </a>
+                            <button type="submit" name="add" class="btn btn-primary">
+                                <i class="fas fa-user-plus"></i> Add Employee
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
-        </main>
-        <div class="left-sidebar-hover"></div>
-        <script src="../assets/plugins/jquery/jquery-2.2.0.min.js"></script>
-        <script src="../assets/plugins/materialize/js/materialize.min.js"></script>
-        <script src="../assets/plugins/material-preloader/js/materialPreloader.min.js"></script>
-        <script src="../assets/plugins/jquery-blockui/jquery.blockui.js"></script>
-        <script src="../assets/js/alpha.min.js"></script>
-        <script src="../assets/js/pages/form_elements.js"></script>
-    </body>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
 </html>
 <?php } ?>

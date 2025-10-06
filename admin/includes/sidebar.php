@@ -1,76 +1,94 @@
-     <aside id="slide-out" class="side-nav white fixed">
-                <div class="side-nav-wrapper">
-                    <div class="sidebar-profile">
-                        <div class="sidebar-profile-image">
-                            <center>
-                                <img src="../assets/images/profile-image.png" class="circle" alt="">
-                            </center>
-                        </div>
-                        <div class="sidebar-profile-info">
-
-                                <center><p>Admin</p></center>
-
-
-                        </div>
-                    </div>
-
-                <ul class="sidebar-menu collapsible collapsible-accordion" data-collapsible="accordion">
-                    <li class="no-padding"><a class="waves-effect waves-grey" href="dashboard.php"><i class="material-icons">settings_input_svideo</i>Dashboard</a></li>
-                    <li class="no-padding">
-                        <a class="collapsible-header waves-effect waves-grey"><i class="material-icons">apps</i>Department<i class="nav-drop-icon material-icons">keyboard_arrow_right</i></a>
-                        <div class="collapsible-body">
-                            <ul>
-                                <li><a href="adddepartment.php">Add Department</a></li>
-                                <li><a href="managedepartments.php">Manage Department</a></li>
-                            </ul>
-                        </div>
-                    </li>
-                    <li class="no-padding">
-                        <a class="collapsible-header waves-effect waves-grey"><i class="material-icons">code</i>Leave Type<i class="nav-drop-icon material-icons">keyboard_arrow_right</i></a>
-                        <div class="collapsible-body">
-                            <ul>
-                                <li><a href="addleavetype.php">Add Leave Type</a></li>
-                                <li><a href="manageleavetype.php">Manage Leave Type</a></li>
-                            </ul>
-                        </div>
-                    </li>
-                    <li class="no-padding">
-                        <a class="collapsible-header waves-effect waves-grey"><i class="material-icons">account_box</i>Employees<i class="nav-drop-icon material-icons">keyboard_arrow_right</i></a>
-                        <div class="collapsible-body">
-                            <ul>
-                                <li><a href="addemployee.php">Add Employee</a></li>
-                                <li><a href="manageemployee.php">Manage Employee</a></li>
-
-                            </ul>
-                        </div>
-                    </li>
-
-   <li class="no-padding">
-                        <a class="collapsible-header waves-effect waves-grey"><i class="material-icons">desktop_windows</i>Leave Management<i class="nav-drop-icon material-icons">keyboard_arrow_right</i></a>
-                        <div class="collapsible-body">
-                            <ul>
-                                <li><a href="leaves.php">All Leaves </a></li>
-                                <li><a href="pending-leavehistory.php">Pending Leaves </a></li>
-                                <li><a href="approvedleave-history.php">Approved Leaves</a></li>
-                                  <li><a href="notapproved-leaves.php">Not Approved Leaves</a></li>
-
-                            </ul>
-                        </div>
-                    </li>
-
-
-  <li class="no-padding"><a class="waves-effect waves-grey" href="changepassword.php"><i class="material-icons">settings_input_svideo</i>Chnage Password</a></li>
-
-                        <li class="no-padding">
-                                <a class="waves-effect waves-grey" href="logout.php"><i class="material-icons">exit_to_app</i>Log Out</a>
-                            </li>
-
-
-
-
-                </ul>
-                   <div class="footer">
-                   <center><p><a target="__blank" href="https://jssateb.ac.in/"><img src="../assets/images/jss.png" width="95%"></a></p></center>
+<?php
+// admin/includes/sidebar.php
+?>
+<!-- Sidebar -->
+<nav class="sidebar bg-dark text-white" style="width: 280px; min-height: 100vh;">
+    <div class="sidebar-sticky pt-3">
+        <!-- Brand -->
+        <div class="px-3 py-4 border-bottom border-secondary">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-calendar-alt fa-2x text-primary me-2"></i>
+                <div>
+                    <h5 class="mb-0 text-white">ELMS</h5>
+                    <small class="text-muted">Admin Portal</small>
                 </div>
-                </div>
-            </aside>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <ul class="nav flex-column mt-3">
+            <li class="nav-item mb-1">
+                <a class="nav-link text-white d-flex align-items-center py-3 px-3 rounded" href="dashboard.php">
+                    <i class="fas fa-tachometer-alt me-3"></i>
+                    Dashboard
+                </a>
+            </li>
+            
+            <li class="nav-item mb-1">
+                <a class="nav-link text-white d-flex align-items-center py-3 px-3 rounded" href="manageemployee.php">
+                    <i class="fas fa-users me-3"></i>
+                    Manage Employees
+                </a>
+            </li>
+            
+            <li class="nav-item mb-1">
+                <a class="nav-link text-white d-flex align-items-center py-3 px-3 rounded" href="managedepartments.php">
+                    <i class="fas fa-building me-3"></i>
+                    Departments
+                </a>
+            </li>
+            
+            <li class="nav-item mb-1">
+                <a class="nav-link text-white d-flex align-items-center py-3 px-3 rounded" href="manageleavetype.php">
+                    <i class="fas fa-calendar-alt me-3"></i>
+                    Leave Types
+                </a>
+            </li>
+            
+            <li class="nav-item mb-1">
+                <a class="nav-link text-white d-flex align-items-center py-3 px-3 rounded" href="leaves.php">
+                    <i class="fas fa-clipboard-list me-3"></i>
+                    Leave Requests
+                    <span class="badge bg-warning ms-auto">
+                        <?php
+                        $sql = "SELECT id FROM tblleaves WHERE Status=0";
+                        $query = $dbh->prepare($sql);
+                        $query->execute();
+                        echo $query->rowCount();
+                        ?>
+                    </span>
+                </a>
+            </li>
+            
+            <li class="nav-item mb-1">
+                <a class="nav-link text-white d-flex align-items-center py-3 px-3 rounded" href="approvedleave-history.php">
+                    <i class="fas fa-check-circle me-3"></i>
+                    Approved Leaves
+                </a>
+            </li>
+            
+            <li class="nav-item mb-1">
+                <a class="nav-link text-white d-flex align-items-center py-3 px-3 rounded" href="notapproved-leaves.php">
+                    <i class="fas fa-times-circle me-3"></i>
+                    Rejected Leaves
+                </a>
+            </li>
+            
+            <li class="nav-divider my-3 border-secondary"></li>
+            
+            <li class="nav-item mb-1">
+                <a class="nav-link text-white d-flex align-items-center py-3 px-3 rounded" href="changepassword.php">
+                    <i class="fas fa-key me-3"></i>
+                    Change Password
+                </a>
+            </li>
+            
+            <li class="nav-item mb-1">
+                <a class="nav-link text-white d-flex align-items-center py-3 px-3 rounded" href="logout.php">
+                    <i class="fas fa-sign-out-alt me-3"></i>
+                    Logout
+                </a>
+            </li>
+        </ul>
+    </div>
+</nav>
