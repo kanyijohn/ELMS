@@ -197,3 +197,4 @@ if (strlen($_SESSION['alogin']) == 0) {
 </body>
 </html>
 <?php } ?>
+gi
