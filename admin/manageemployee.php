@@ -112,7 +112,10 @@ try {
     </style>
 </head>
 <body>
+      <div class="dashboard-container">
+        <?php include('includes/sidebar.php'); ?>
 <div class="container-fluid my-4">
+    
     <div class="row">
         <div class="col-12 mb-3 d-flex justify-content-between align-items-center">
             <div>
