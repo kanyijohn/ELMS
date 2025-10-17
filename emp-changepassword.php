@@ -1,140 +1,235 @@
 <?php
 session_start();
-error_reporting(0);
 include 'includes/config.php';
+
 if (strlen($_SESSION['emplogin']) == 0) {
     header('location:index.php');
-} else {
-// Code for change password
-    if (isset($_POST['change'])) {
-        $password = md5($_POST['password']);
-        $newpassword = md5($_POST['newpassword']);
-        $username = $_SESSION['emplogin'];
-        $sql = "SELECT Password FROM tblemployees WHERE EmailId=:username and Password=:password";
-        $query = $dbh->prepare($sql);
-        $query->bindParam(':username', $username, PDO::PARAM_STR);
-        $query->bindParam(':password', $password, PDO::PARAM_STR);
-        $query->execute();
-        $results = $query->fetchAll(PDO::FETCH_OBJ);
-        if ($query->rowCount() > 0) {
-            $con = "update tblemployees set Password=:newpassword where EmailId=:username";
-            $chngpwd1 = $dbh->prepare($con);
-            $chngpwd1->bindParam(':username', $username, PDO::PARAM_STR);
-            $chngpwd1->bindParam(':newpassword', $newpassword, PDO::PARAM_STR);
-            $chngpwd1->execute();
-            $msg = "Your Password succesfully changed";
-        } else {
-            $error = "Your current password is wrong";
-        }
-    }
-    ?>
+    exit();
+}
 
+$msg = $error = "";
+
+if (isset($_POST['change'])) {
+    $password = md5($_POST['password']);
+    $newpassword = md5($_POST['newpassword']);
+    $username = $_SESSION['emplogin'];
+
+    $sql = "SELECT Password FROM tblemployees WHERE EmailId=:username AND Password=:password";
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':username', $username, PDO::PARAM_STR);
+    $query->bindParam(':password', $password, PDO::PARAM_STR);
+    $query->execute();
+
+    if ($query->rowCount() > 0) {
+        $con = "UPDATE tblemployees SET Password=:newpassword WHERE EmailId=:username";
+        $chngpwd1 = $dbh->prepare($con);
+        $chngpwd1->bindParam(':username', $username, PDO::PARAM_STR);
+        $chngpwd1->bindParam(':newpassword', $newpassword, PDO::PARAM_STR);
+        $chngpwd1->execute();
+        $msg = "Your password has been successfully changed.";
+    } else {
+        $error = "Your current password is incorrect.";
+    }
+}
+?>
 <!DOCTYPE html>
 <html lang="en">
-    <head>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change Password | ELMS</title>
 
-        <!-- Title -->
-        <title>Employee | Change Password</title>
+    <!-- Bootstrap & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="assets/css/modern.css" rel="stylesheet">
 
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-        <meta charset="UTF-8">
-        <meta name="description" content="Responsive Admin Dashboard Template" />
-        <meta name="keywords" content="admin,dashboard" />
-        <meta name="author" content="Steelcoders" />
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f5f6fa;
+        }
+        .main-wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+        .content-area {
+            flex: 1;
+            padding: 2rem;
+            background-color: #fff;
+        }
+        .enhanced-card {
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .password-strength {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            margin-top: 0.5rem;
+        }
+        .password-strength-fill {
+            height: 100%;
+            width: 0%;
+            background: #dc3545;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
 
-        <!-- Styles -->
-        <link type="text/css" rel="stylesheet" href="assets/plugins/materialize/css/materialize.min.css"/>
-         <link type="text/css" rel="stylesheet" href="assets/plugins/materialize/css/materialize.css"/>
-        <link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-        <link href="assets/plugins/material-preloader/css/materialPreloader.min.css" rel="stylesheet">
-        <link href="assets/css/alpha.min.css" rel="stylesheet" type="text/css"/>
-        <link href="assets/css/custom.css" rel="stylesheet" type="text/css"/>
-        <link href="assets/css/style.css" rel="stylesheet" type="text/css"/>
-        <style>
-        .errorWrap {
-    padding: 10px;
-    margin: 0 0 20px 0;
-    background: #fff;
-    border-left: 4px solid #dd3d36;
-    -webkit-box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-    box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-}
-.succWrap{
-    padding: 10px;
-    margin: 0 0 20px 0;
-    background: #fff;
-    border-left: 4px solid #5cb85c;
-    -webkit-box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-    box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
-}
-        </style>
-    </head>
-    <body>
-  <?php include 'includes/header.php';?>
+<body>
+<div class="main-wrapper">
+    <!-- Sidebar Include -->
+    <div>
+        <?php include('includes/sidebar.php'); ?>
+    </div>
 
-       <?php include 'includes/sidebar.php';?>
-            <main class="mn-inner">
-                <div class="row">
-                    <div class="col s12">
-                        <div class="page-title" style="color: green;">Change Pasword</div>
-                    </div>
-                    <div class="col s12 m12 25">
-                        <div class="card" >
-                            <div class="card-content">
+    <!-- Main Content -->
+    <div class="content-area">
+        <div class="container-fluid">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4><i class="fas fa-key"></i> Change Password</h4>
+                <a href="index.php" class="btn btn-secondary btn-sm">
+                    <i class="fas fa-arrow-left"></i> Back
+                </a>
+            </div>
 
-                                <div class="row">
-                                    <form class="col s12" name="chngpwd" method="post">
-                                          <?php if ($error) {?><div class="errorWrap"><strong>ERROR</strong>:<?php echo htmlentities($error); ?> </div><?php } else if ($msg) {?><div class="succWrap"><strong>SUCCESS</strong>:<?php echo htmlentities($msg); ?> </div><?php }?>
-                                        <div class="row">
-                                            <div class="input-field col s12">
-<input id="password" type="password"  class="validate" autocomplete="off" name="password"  required>
-                                                <label for="password">Enter Old Password</label>
-                                            </div>
+            <?php if ($error) { ?>
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-circle me-2"></i> <?php echo htmlentities($error); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php } else if ($msg) { ?>
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="fas fa-check-circle me-2"></i> <?php echo htmlentities($msg); ?>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            <?php } ?>
 
-  <div class="input-field col s12">
- <input id="password" type="password" name="newpassword" class="validate" autocomplete="off" required>
-                                                <label for="password">Enter New Password</label>
-                                            </div>
-
-<div class="input-field col s12">
-<input id="password" type="password" name="confirmpassword" class="validate" autocomplete="off" required>
- <label for="password">Enter Confirm Password</label>
-</div>
-
-
-<div class="input-field col s12" align="center">
-<button type="submit" name="change"  class="waves-effect waves-light btn indigo m-b-xs" onclick="return valid();">Change</button>
-
-</div>
-
-
-
-
-                                        </div>
-
-                                    </form>
-                                </div>
+            <div class="card enhanced-card">
+                <div class="card-body">
+                    <form method="post" id="passwordForm" autocomplete="off">
+                        <div class="mb-3">
+                            <label class="form-label">Current Password</label>
+                            <div class="input-group">
+                                <input type="password" name="password" id="currentPassword"
+                                       class="form-control" required autocomplete="current-password">
+                                <button type="button" class="btn btn-outline-secondary toggle-password" data-target="currentPassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
                             </div>
                         </div>
 
+                        <div class="mb-3">
+                            <label class="form-label">New Password</label>
+                            <div class="input-group">
+                                <input type="password" name="newpassword" id="newPassword"
+                                       class="form-control" required autocomplete="new-password">
+                                <button type="button" class="btn btn-outline-secondary toggle-password" data-target="newPassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <div class="password-strength mt-2">
+                                <div class="password-strength-fill" id="passwordStrength"></div>
+                            </div>
+                        </div>
 
+                        <div class="mb-3">
+                            <label class="form-label">Confirm New Password</label>
+                            <div class="input-group">
+                                <input type="password" name="confirmpassword" id="confirmPassword"
+                                       class="form-control" required autocomplete="new-password">
+                                <button type="button" class="btn btn-outline-secondary toggle-password" data-target="confirmPassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <small id="confirmMessage"></small>
+                        </div>
 
-                    </div>
-
+                        <div class="text-end">
+                            <button type="submit" name="change" id="submitButton" class="btn btn-primary" disabled>
+                                <i class="fas fa-save"></i> Update Password
+                            </button>
+                        </div>
+                    </form>
                 </div>
-            </main>
+            </div>
 
+            <div class="card enhanced-card mt-4">
+                <div class="card-header"><i class="fas fa-shield-alt"></i> Password Security Tips</div>
+                <div class="card-body">
+                    <ul class="mb-0">
+                        <li>Use a combination of uppercase, lowercase, numbers, and symbols.</li>
+                        <li>Avoid using personal information like birthdates or names.</li>
+                        <li>Do not reuse old passwords from other sites.</li>
+                        <li>Consider using a password manager for safety.</li>
+                    </ul>
+                </div>
+            </div>
         </div>
-        <div class="left-sidebar-hover"></div>
+    </div>
+</div>
 
-        <!-- Javascripts -->
-        <script src="assets/plugins/jquery/jquery-2.2.0.min.js"></script>
-        <script src="assets/plugins/materialize/js/materialize.min.js"></script>
-        <script src="assets/plugins/material-preloader/js/materialPreloader.min.js"></script>
-        <script src="assets/plugins/jquery-blockui/jquery.blockui.js"></script>
-        <script src="assets/js/alpha.min.js"></script>
-        <script src="assets/js/pages/form_elements.js"></script>
+<!-- JS Scripts -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    </body>
+<script>
+    // Toggle Password Visibility
+    $('.toggle-password').on('click', function() {
+        const target = $(this).data('target');
+        const input = $('#' + target);
+        const icon = $(this).find('i');
+        if (input.attr('type') === 'password') {
+            input.attr('type', 'text');
+            icon.removeClass('fa-eye').addClass('fa-eye-slash');
+        } else {
+            input.attr('type', 'password');
+            icon.removeClass('fa-eye-slash').addClass('fa-eye');
+        }
+    });
+
+    // Password Strength Checker
+    $('#newPassword').on('input', function() {
+        const password = $(this).val();
+        let strength = 0;
+        if (password.length >= 8) strength += 25;
+        if (/[A-Z]/.test(password)) strength += 25;
+        if (/[a-z]/.test(password)) strength += 25;
+        if (/[0-9]/.test(password)) strength += 25;
+
+        const bar = $('#passwordStrength');
+        bar.css('width', strength + '%');
+        bar.css('background', strength < 50 ? '#dc3545' : (strength < 75 ? '#ffc107' : '#28a745'));
+        validateForm();
+    });
+
+    // Confirm Password Check
+    $('#confirmPassword').on('input', function() {
+        validateForm();
+    });
+
+    function validateForm() {
+        const newPass = $('#newPassword').val();
+        const confirmPass = $('#confirmPassword').val();
+        const btn = $('#submitButton');
+        const msg = $('#confirmMessage');
+
+        if (newPass && confirmPass) {
+            if (newPass === confirmPass) {
+                msg.text('Passwords match ✅').css('color', 'green');
+                btn.prop('disabled', false);
+            } else {
+                msg.text('Passwords do not match ❌').css('color', 'red');
+                btn.prop('disabled', true);
+            }
+        } else {
+            msg.text('');
+            btn.prop('disabled', true);
+        }
+    }
+</script>
+</body>
 </html>
-<?php }?>
