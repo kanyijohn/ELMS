@@ -123,9 +123,11 @@ if (strlen($_SESSION['alogin']) == 0) {
                                     </td>
                                     <td>
                                         <div class="d-flex gap-1">
-                                            <a href="editleavetype.php?ltid=<?php echo htmlentities($result->id); ?>" class="btn btn-warning btn-sm" title="Edit">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
+                                            <a href="editleavetype.php?lid=<?php echo htmlentities($result->id); ?>" 
+   class="btn btn-sm btn-primary">
+   <i class="fas fa-edit"></i> Edit
+</a>
+
                                             <?php if ($result->IsActive == 1) { ?>
                                                 <a href="manageleavetype.php?deactivate=<?php echo htmlentities($result->id); ?>" class="btn btn-danger btn-sm" title="Deactivate" onclick="return confirm('Are you sure you want to deactivate this leave type?');">
                                                     <i class="fas fa-ban"></i>
