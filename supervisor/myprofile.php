@@ -1,213 +1,433 @@
 <?php
 session_start();
-error_reporting(0);
-include 'includes/config.php';
+include __DIR__ . '/../includes/config.php';
 
-if (strlen($_SESSION['emplogin']) == 0) {
-    header('location:index.php');
+if (!isset($_SESSION['eid']) || $_SESSION['role'] != 'Supervisor') {
+    header('location:../index.php');
+    exit();
+}
+
+$supervisor_id = $_SESSION['eid'];
+$error = "";
+$msg = "";
+$supervisor = null;
+
+// Get supervisor details
+$sql = "SELECT * FROM tblemployees WHERE id=:supid";
+$query = $dbh->prepare($sql);
+$query->bindParam(':supid', $supervisor_id, PDO::PARAM_INT);
+$query->execute();
+$supervisor = $query->fetch(PDO::FETCH_OBJ);
+
+if (!$supervisor) {
+    $error = "Supervisor information not found. Please contact administrator.";
 } else {
-    $eid = $_SESSION['emplogin'];
-
-    if (isset($_POST['update'])) {
-        $fname = $_POST['firstName'];
-        $lname = $_POST['lastName'];
-        $gender = $_POST['gender'];
-        $dob = $_POST['dob'];
-        $department = $_POST['department'];
-        $address = $_POST['address'];
-        $city = $_POST['city'];
-        $country = $_POST['country'];
-        $mobileno = $_POST['mobileno'];
-
-        $sql = "UPDATE tblemployees 
-                SET FirstName=:fname, LastName=:lname, Gender=:gender, Dob=:dob, 
-                    Department=:department, Address=:address, City=:city, Country=:country, 
-                    Phonenumber=:mobileno 
-                WHERE EmailId=:eid";
-        $query = $dbh->prepare($sql);
-        $query->bindParam(':fname', $fname, PDO::PARAM_STR);
-        $query->bindParam(':lname', $lname, PDO::PARAM_STR);
-        $query->bindParam(':gender', $gender, PDO::PARAM_STR);
-        $query->bindParam(':dob', $dob, PDO::PARAM_STR);
-        $query->bindParam(':department', $department, PDO::PARAM_STR);
-        $query->bindParam(':address', $address, PDO::PARAM_STR);
-        $query->bindParam(':city', $city, PDO::PARAM_STR);
-        $query->bindParam(':country', $country, PDO::PARAM_STR);
-        $query->bindParam(':mobileno', $mobileno, PDO::PARAM_STR);
-        $query->bindParam(':eid', $eid, PDO::PARAM_STR);
-        $query->execute();
-        $msg = "Employee record updated Successfully";
+    // Handle profile update
+    if(isset($_POST['update'])) {
+        $fname = trim($_POST['fname']);
+        $lname = trim($_POST['lname']);
+        $mobileno = trim($_POST['mobileno']);
+        $address = trim($_POST['address']);
+        $city = trim($_POST['city']);
+        $country = trim($_POST['country']);
+        
+        if(empty($fname) || empty($lname)) {
+            $error = "First name and last name are required.";
+        } else {
+            // Check if updationDate column exists, otherwise don't include it
+            $update_sql = "UPDATE tblemployees SET FirstName = :fname, LastName = :lname, 
+                          Phonenumber = :mobileno, Address = :address, City = :city, 
+                          Country = :country WHERE id = :supid";
+            $update_query = $dbh->prepare($update_sql);
+            $update_query->bindParam(':fname', $fname, PDO::PARAM_STR);
+            $update_query->bindParam(':lname', $lname, PDO::PARAM_STR);
+            $update_query->bindParam(':mobileno', $mobileno, PDO::PARAM_STR);
+            $update_query->bindParam(':address', $address, PDO::PARAM_STR);
+            $update_query->bindParam(':city', $city, PDO::PARAM_STR);
+            $update_query->bindParam(':country', $country, PDO::PARAM_STR);
+            $update_query->bindParam(':supid', $supervisor_id, PDO::PARAM_INT);
+            
+            if($update_query->execute()) {
+                $msg = "Profile updated successfully!";
+                // Refresh supervisor data
+                $query->execute();
+                $supervisor = $query->fetch(PDO::FETCH_OBJ);
+            } else {
+                $error = "Failed to update profile. Please try again.";
+            }
+        }
     }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- Title -->
-    <title>Employee | My Profile</title>
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
     <meta charset="UTF-8">
-    <meta name="description" content="Responsive Admin Dashboard Template" />
-    <meta name="keywords" content="admin,dashboard" />
-    <meta name="author" content="Steelcoders" />
-
-    <!-- Styles -->
-    <link rel="stylesheet" href="/elms/assets/plugins/materialize/css/materialize.min.css"/>
-    <link rel="stylesheet" href="/elms/assets/plugins/materialize/css/materialize.css"/>
-    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-    <link rel="stylesheet" href="/elms/assets/plugins/material-preloader/css/materialPreloader.min.css"/>
-    <link rel="stylesheet" href="/elms/assets/css/alpha.min.css" type="text/css"/>
-    <link rel="stylesheet" href="/elms/assets/css/custom.css" type="text/css"/>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile | Employee Leave Management System</title>
+    
+    <!-- Bootstrap & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../assets/css/modern.css">
+    
     <style>
-        .errorWrap {
-            padding: 10px;
-            margin: 0 0 20px 0;
-            background: #fff;
-            border-left: 4px solid #dd3d36;
-            box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
+        .btn-enhanced {
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            border: none;
+            cursor: pointer;
         }
-        .succWrap {
-            padding: 10px;
-            margin: 0 0 20px 0;
+        .btn-enhanced:hover {
+            transform: translateY(-1px);
+        }
+        .btn-primary { background: #0d6efd; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-warning { background: #ffc107; color: #000; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-success { background: #198754; color: white; }
+        .btn-info { background: #0dcaf0; color: #000; }
+        .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.875rem; }
+        
+        .enhanced-card {
             background: #fff;
-            border-left: 4px solid #5cb85c;
-            box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
+            border-radius: 0.5rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        .enhanced-card .card-header {
+            padding: 1rem 1.5rem;
+            background: #f8f9fa;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        .enhanced-card .card-body {
+            padding: 1.5rem;
+        }
+        
+        .badge-enhanced {
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        .badge-active {
+            background: #d1e7dd;
+            color: #0f5132;
+            border: 1px solid #badbcc;
+        }
+        .badge-inactive {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f1aeb5;
+        }
+        .bg-success { background: #198754 !important; }
+        .bg-info { background: #0dcaf0 !important; }
+        .bg-warning { background: #ffc107 !important; color: #000; }
+        
+        .alert-modern {
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            margin-bottom: 1rem;
+            border: 1px solid transparent;
+        }
+        .alert-error {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .alert-success {
+            color: #155724;
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        
+        .avatar-xl {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 2rem;
         }
     </style>
 </head>
 <body>
-    <?php include 'includes/header.php';?>
-    <?php include 'includes/sidebar.php';?>
-
-    <main class="mn-inner">
-        <div class="row">
-            <div class="col s12">
-                <div class="page-title" style="color: green;">Update Employee Details</div>
+    <!-- Supervisor Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="dashboard.php">
+                <i class="fas fa-user-tie me-2"></i>
+                ELMS - Supervisor Portal
+            </a>
+            <div class="d-flex align-items-center">
+                <a href="dashboard.php" class="btn-enhanced btn-secondary btn-sm">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
+                </a>
             </div>
-            <div class="col s12 m12 l12">
-                <div class="card">
-                    <div class="card-content">
-                        <form id="example-form" method="post" name="updatemp">
-                            <div>
-                                <?php if ($error) { ?>
-                                    <div class="errorWrap"><strong>ERROR</strong>: <?php echo htmlentities($error); ?> </div>
-                                <?php } else if ($msg) { ?>
-                                    <div class="succWrap"><strong>SUCCESS</strong>: <?php echo htmlentities($msg); ?> </div>
-                                <?php } ?>
+        </div>
+    </nav>
 
-                                <section>
-                                    <div class="wizard-content">
-                                        <div class="row">
-                                            <div class="col m6">
-                                                <div class="row">
-                                                    <?php
-                                                    $eid = $_SESSION['emplogin'];
-                                                    $sql = "SELECT * FROM tblemployees WHERE EmailId=:eid";
-                                                    $query = $dbh->prepare($sql);
-                                                    $query->bindParam(':eid', $eid, PDO::PARAM_STR);
-                                                    $query->execute();
-                                                    $results = $query->fetchAll(PDO::FETCH_OBJ);
-                                                    if ($query->rowCount() > 0) {
-                                                        foreach ($results as $result) { ?>
-                                                            <div class="input-field col s12">
-                                                                <label for="empcode">Employee Code</label>
-                                                                <input name="empcode" id="empcode" value="<?php echo htmlentities($result->EmpId); ?>" type="text" readonly required>
-                                                            </div>
+    <div class="container-fluid py-4">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <!-- Page Header -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h1 class="h3 mb-1">My Profile</h1>
+                        <p class="text-muted mb-0">Manage your personal information and account details</p>
+                    </div>
+                    <div>
+                        <a href="emp-changepassword.php" class="btn-enhanced btn-warning">
+                            <i class="fas fa-key"></i> Change Password
+                        </a>
+                    </div>
+                </div>
 
-                                                            <div class="input-field col m6 s12">
-                                                                <label for="firstName">First Name</label>
-                                                                <input id="firstName" name="firstName" value="<?php echo htmlentities($result->FirstName); ?>" type="text" required>
-                                                            </div>
+                <?php if(!empty($error)): ?>
+                    <div class="alert-modern alert-error">
+                        <i class="fas fa-exclamation-circle"></i> <?php echo htmlentities($error); ?>
+                    </div>
+                <?php endif; ?>
+                
+                <?php if(!empty($msg)): ?>
+                    <div class="alert-modern alert-success">
+                        <i class="fas fa-check-circle"></i> <?php echo htmlentities($msg); ?>
+                    </div>
+                <?php endif; ?>
 
-                                                            <div class="input-field col m6 s12">
-                                                                <label for="lastName">Last Name</label>
-                                                                <input id="lastName" name="lastName" value="<?php echo htmlentities($result->LastName); ?>" type="text" required>
-                                                            </div>
+                <?php if(!$supervisor): ?>
+                    <div class="text-center mt-4">
+                        <a href="dashboard.php" class="btn-enhanced btn-primary">Return to Dashboard</a>
+                    </div>
+                <?php else: ?>
+                <div class="row">
+                    <!-- Profile Summary -->
+                    <div class="col-lg-4">
+                        <div class="enhanced-card">
+                            <div class="card-body text-center">
+                                <div class="mb-4">
+                                    <div class="avatar-xl bg-warning rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3">
+                                        <span class="text-white fw-bold">
+                                            <?php echo substr(htmlentities($supervisor->FirstName), 0, 1); ?>
+                                        </span>
+                                    </div>
+                                    <h4 class="mb-1"><?php echo htmlentities($supervisor->FirstName).' '.htmlentities($supervisor->LastName); ?></h4>
+                                    <p class="text-muted mb-2"><?php echo htmlentities($supervisor->Department); ?> Supervisor</p>
+                                    <span class="badge-enhanced bg-warning">
+                                        <i class="fas fa-user-tie"></i> Supervisor
+                                    </span>
+                                </div>
+                                
+                                <div class="text-start">
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block">Employee ID</small>
+                                        <strong><?php echo htmlentities($supervisor->EmpId); ?></strong>
+                                    </div>
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block">Email</small>
+                                        <strong><?php echo htmlentities($supervisor->EmailId); ?></strong>
+                                    </div>
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block">Phone</small>
+                                        <strong><?php echo htmlentities($supervisor->Phonenumber) ?: 'Not provided'; ?></strong>
+                                    </div>
+                                    <div class="mb-3">
+                                        <small class="text-muted d-block">Registration Date</small>
+                                        <strong><?php echo htmlentities($supervisor->RegDate); ?></strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
-                                                            <div class="input-field col s12">
-                                                                <label for="email">Email</label>
-                                                                <input name="email" type="email" id="email" value="<?php echo htmlentities($result->EmailId); ?>" readonly required>
-                                                            </div>
+                        <!-- Department Info -->
+                        <div class="enhanced-card mt-4">
+                            <div class="card-header">
+                                <h6><i class="fas fa-building"></i> Department Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <small class="text-muted d-block">Department</small>
+                                    <strong><?php echo htmlentities($supervisor->Department); ?></strong>
+                                </div>
+                                <div class="mb-3">
+                                    <small class="text-muted d-block">Role</small>
+                                    <strong>Supervisor</strong>
+                                </div>
+                                <div class="mb-3">
+                                    <small class="text-muted d-block">Account Status</small>
+                                    <?php
+                                    // Check if status property exists, otherwise assume active
+                                    $status = property_exists($supervisor, 'status') ? $supervisor->status : 1;
+                                    $isActive = property_exists($supervisor, 'IsActive') ? $supervisor->IsActive : 1;
+                                    // Use either status or IsActive, default to active
+                                    $accountStatus = ($status == 1 || $isActive == 1) ? 1 : 0;
+                                    ?>
+                                    <span class="badge-enhanced <?php echo ($accountStatus == 1) ? 'badge-active' : 'badge-inactive'; ?>">
+                                        <?php echo ($accountStatus == 1) ? 'Active' : 'Inactive'; ?>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                                                            <div class="input-field col s12">
-                                                                <label for="phone">Mobile Number</label>
-                                                                <input id="phone" name="mobileno" type="tel" value="<?php echo htmlentities($result->Phonenumber); ?>" maxlength="10" required>
-                                                            </div>
-                                                </div>
+                    <!-- Edit Profile Form -->
+                    <div class="col-lg-8">
+                        <div class="enhanced-card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-user-edit"></i> Edit Profile Information</h5>
+                            </div>
+                            <div class="card-body">
+                                <form method="post">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">First Name <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" name="fname" 
+                                                       value="<?php echo htmlentities($supervisor->FirstName); ?>" required>
                                             </div>
-
-                                            <div class="col m6">
-                                                <div class="row">
-                                                    <div class="input-field col m6 s12">
-                                                        <select name="gender">
-                                                            <option value="<?php echo htmlentities($result->Gender); ?>"><?php echo htmlentities($result->Gender); ?></option>
-                                                            <option value="Male">Male</option>
-                                                            <option value="Female">Female</option>
-                                                            <option value="Other">Other</option>
-                                                        </select>
-                                                    </div>
-
-                                                    <label for="birthdate">Date of Birth</label>
-                                                    <div class="input-field col m6 s12">
-                                                        <input id="birthdate" name="dob" class="datepicker" value="<?php echo htmlentities($result->Dob); ?>">
-                                                    </div>
-
-                                                    <div class="input-field col m6 s12">
-                                                        <select name="department">
-                                                            <option value="<?php echo htmlentities($result->Department); ?>"><?php echo htmlentities($result->Department); ?></option>
-                                                            <?php
-                                                            $sql = "SELECT DepartmentName FROM tbldepartments";
-                                                            $query = $dbh->prepare($sql);
-                                                            $query->execute();
-                                                            $departments = $query->fetchAll(PDO::FETCH_OBJ);
-                                                            if ($query->rowCount() > 0) {
-                                                                foreach ($departments as $dept) { ?>
-                                                                    <option value="<?php echo htmlentities($dept->DepartmentName); ?>"><?php echo htmlentities($dept->DepartmentName); ?></option>
-                                                            <?php }} ?>
-                                                        </select>
-                                                    </div>
-
-                                                    <div class="input-field col m6 s12">
-                                                        <label for="country">Country</label>
-                                                        <input id="country" name="country" type="text" value="<?php echo htmlentities($result->Country); ?>" required>
-                                                    </div>
-
-                                                    <div class="input-field col m6 s12">
-                                                        <label for="city">City/Town</label>
-                                                        <input id="city" name="city" type="text" value="<?php echo htmlentities($result->City); ?>" required>
-                                                    </div>
-
-                                                    <div class="input-field col m6 s12">
-                                                        <label for="address">Address</label>
-                                                        <input id="address" name="address" type="text" value="<?php echo htmlentities($result->Address); ?>" required>
-                                                    </div>
-                                                <?php }} ?>
-                                                    <div class="input-field col s12">
-                                                        <button type="submit" name="update" class="waves-effect waves-light btn indigo m-b-xs">UPDATE</button>
-                                                    </div>
-                                                </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                                                <input type="text" class="form-control" name="lname" 
+                                                       value="<?php echo htmlentities($supervisor->LastName); ?>" required>
                                             </div>
                                         </div>
                                     </div>
-                                </section>
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Email Address</label>
+                                                <input type="email" class="form-control" 
+                                                       value="<?php echo htmlentities($supervisor->EmailId); ?>" readonly>
+                                                <div class="form-text">Email cannot be changed. Contact admin for email updates.</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Gender</label>
+                                                <input type="text" class="form-control" 
+                                                       value="<?php echo htmlentities($supervisor->Gender); ?>" readonly>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Department</label>
+                                                <input type="text" class="form-control" 
+                                                       value="<?php echo htmlentities($supervisor->Department); ?>" readonly>
+                                                <div class="form-text">Department changes require admin approval.</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Mobile Number</label>
+                                                <input type="text" class="form-control" name="mobileno" 
+                                                       value="<?php echo htmlentities($supervisor->Phonenumber); ?>" 
+                                                       placeholder="Enter your mobile number">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <label class="form-label">Address</label>
+                                        <textarea class="form-control" name="address" rows="3" 
+                                                  placeholder="Enter your complete address"><?php echo htmlentities($supervisor->Address); ?></textarea>
+                                    </div>
+
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">City</label>
+                                                <input type="text" class="form-control" name="city" 
+                                                       value="<?php echo htmlentities($supervisor->City); ?>" 
+                                                       placeholder="Enter your city">
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label class="form-label">Country</label>
+                                                <input type="text" class="form-control" name="country" 
+                                                       value="<?php echo htmlentities($supervisor->Country); ?>" 
+                                                       placeholder="Enter your country">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <a href="dashboard.php" class="btn-enhanced btn-secondary">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </a>
+                                        <button type="submit" name="update" class="btn-enhanced btn-primary">
+                                            <i class="fas fa-save"></i> Update Profile
+                                        </button>
+                                    </div>
+                                </form>
                             </div>
-                        </form>
+                        </div>
+
+                        <!-- Account Information -->
+                        <div class="enhanced-card mt-4">
+                            <div class="card-header">
+                                <h6><i class="fas fa-info-circle"></i> Account Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block">Employee ID</small>
+                                            <strong><?php echo htmlentities($supervisor->EmpId); ?></strong>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block">Registration Date</small>
+                                            <strong><?php echo htmlentities($supervisor->RegDate); ?></strong>
+                                        </div>
+                                    </div>
+                                
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block">Account Status</small>
+                                            <?php
+                                            // Check if status property exists, otherwise assume active
+                                            $status = property_exists($supervisor, 'status') ? $supervisor->status : 1;
+                                            $isActive = property_exists($supervisor, 'IsActive') ? $supervisor->IsActive : 1;
+                                            // Use either status or IsActive, default to active
+                                            $accountStatus = ($status == 1 || $isActive == 1) ? 1 : 0;
+                                            ?>
+                                            <span class="badge-enhanced <?php echo ($accountStatus == 1) ? 'badge-active' : 'badge-inactive'; ?>">
+                                                <?php echo ($accountStatus == 1) ? 'Active' : 'Inactive'; ?>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
+                <?php endif; ?>
             </div>
         </div>
-    </main>
+    </div>
 
-    <div class="left-sidebar-hover"></div>
-
-    <!-- Javascripts -->
-    <script src="/elms/assets/plugins/jquery/jquery-2.2.0.min.js"></script>
-    <script src="/elms/assets/plugins/materialize/js/materialize.min.js"></script>
-    <script src="/elms/assets/plugins/material-preloader/js/materialPreloader.min.js"></script>
-    <script src="/elms/assets/plugins/jquery-blockui/jquery.blockui.js"></script>
-    <script src="/elms/assets/js/alpha.min.js"></script>
-    <script src="/elms/assets/js/pages/form_elements.js"></script>
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
-<?php } ?>
