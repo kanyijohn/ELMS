@@ -1,4 +1,6 @@
 <?php
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 session_start();
 include 'includes/config.php';
 
@@ -9,28 +11,91 @@ if (!isset($_SESSION['eid']) || !isset($_SESSION['empemail'])) {
 }
 
 $msg = $error = "";
+$debug_info = ""; // For debugging information
 
 if (isset($_POST['change'])) {
-    $password = md5($_POST['password']);
-    $newpassword = md5($_POST['newpassword']);
+    $current_password = $_POST['password'];
+    $new_password = $_POST['newpassword'];
+    $confirm_password = $_POST['confirmpassword'];
     $username = $_SESSION['empemail'];
+    $employee_id = $_SESSION['eid'];
 
-    $sql = "SELECT Password FROM tblemployees WHERE EmailId=:username AND Password=:password";
-    $query = $dbh->prepare($sql);
-    $query->bindParam(':username', $username, PDO::PARAM_STR);
-    $query->bindParam(':password', $password, PDO::PARAM_STR);
-    $query->execute();
+    // Debug information
+    $debug_info .= "Form submitted<br>";
+    $debug_info .= "Username: " . $username . "<br>";
+    $debug_info .= "Employee ID: " . $employee_id . "<br>";
 
-    if ($query->rowCount() > 0) {
-        $con = "UPDATE tblemployees SET Password=:newpassword WHERE EmailId=:username";
-        $chngpwd1 = $dbh->prepare($con);
-        $chngpwd1->bindParam(':username', $username, PDO::PARAM_STR);
-        $chngpwd1->bindParam(':newpassword', $newpassword, PDO::PARAM_STR);
-        $chngpwd1->execute();
-        $msg = "Your password has been successfully changed.";
+    // Validate that new password and confirm password match
+    if ($new_password !== $confirm_password) {
+        $error = "New password and confirm password do not match.";
+    } elseif (empty($current_password) || empty($new_password) || empty($confirm_password)) {
+        $error = "All password fields are required.";
     } else {
-        $error = "Your current password is incorrect.";
+        try {
+            // Check if current password is correct
+            $sql = "SELECT Password, EmailId, EmpId FROM tblemployees WHERE id = :id";
+            $query = $dbh->prepare($sql);
+            $query->bindParam(':id', $employee_id, PDO::PARAM_INT);
+            $query->execute();
+            $result = $query->fetch(PDO::FETCH_OBJ);
+
+            if ($result) {
+                $debug_info .= "User found in database<br>";
+                $debug_info .= "Stored password hash: " . $result->Password . "<br>";
+                
+                // Verify current password using MD5
+                $current_password_md5 = md5($current_password);
+                $debug_info .= "Entered current password MD5: " . $current_password_md5 . "<br>";
+                
+                if ($current_password_md5 === $result->Password) {
+                    $debug_info .= "Current password matches!<br>";
+                    
+                    // Current password is correct, update to new password
+                    $new_password_md5 = md5($new_password);
+                    $debug_info .= "New password MD5: " . $new_password_md5 . "<br>";
+                    
+                    $update_sql = "UPDATE tblemployees SET Password = :newpassword WHERE id = :id";
+                    $update_query = $dbh->prepare($update_sql);
+                    $update_query->bindParam(':id', $employee_id, PDO::PARAM_INT);
+                    $update_query->bindParam(':newpassword', $new_password_md5, PDO::PARAM_STR);
+                    
+                    if ($update_query->execute()) {
+                        $rows_affected = $update_query->rowCount();
+                        $debug_info .= "Rows affected: " . $rows_affected . "<br>";
+                        
+                        if ($rows_affected > 0) {
+                            $msg = "Your password has been successfully changed.";
+                            $debug_info .= "Password updated successfully!<br>";
+                        } else {
+                            $error = "No changes were made. Please check if the new password is different from the current one.";
+                        }
+                    } else {
+                        $error = "Failed to update password. Database error occurred.";
+                        $debug_info .= "Update query failed<br>";
+                    }
+                } else {
+                    $error = "Your current password is incorrect.";
+                    $debug_info .= "Current password does not match stored password<br>";
+                }
+            } else {
+                $error = "User not found in database.";
+                $debug_info .= "No user found with ID: " . $employee_id . "<br>";
+            }
+        } catch (PDOException $e) {
+            $error = "Database error: " . $e->getMessage();
+            $debug_info .= "PDO Exception: " . $e->getMessage() . "<br>";
+        }
     }
+}
+
+// Debug: Check database connection
+try {
+    $test_sql = "SELECT COUNT(*) as count FROM tblemployees";
+    $test_query = $dbh->query($test_sql);
+    $test_result = $test_query->fetch(PDO::FETCH_OBJ);
+    $debug_info .= "Database connection test: " . $test_result->count . " employees in database<br>";
+} catch (PDOException $e) {
+    $debug_info .= "Database connection error: " . $e->getMessage() . "<br>";
 }
 ?>
 <!DOCTYPE html>
@@ -264,6 +329,12 @@ if (isset($_POST['change'])) {
             border-left: 4px solid #10b981;
         }
         
+        .alert-info {
+            background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+        
         .security-tips ul {
             list-style: none;
             padding: 0;
@@ -330,6 +401,17 @@ if (isset($_POST['change'])) {
         .sidebar-backdrop.show {
             display: block;
         }
+        
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 
@@ -390,6 +472,21 @@ if (isset($_POST['change'])) {
                         </div>
                     <?php endif; ?>
 
+                    <!-- Debug Information -->
+                    <?php if (!empty($debug_info)): ?>
+                        <div class="alert alert-info">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-bug me-3 fs-5"></i>
+                                <div class="flex-grow-1">
+                                    <strong>Debug Information:</strong>
+                                    <div class="debug-info mt-2">
+                                        <?php echo htmlentities($debug_info); ?>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
                     <div class="row">
                         <!-- Password Change Form -->
                         <div class="col-xl-6 col-lg-8">
@@ -403,7 +500,6 @@ if (isset($_POST['change'])) {
                                     <form method="post" id="passwordForm" autocomplete="off">
                                         <!-- Hidden username field for accessibility -->
                                         <input type="hidden" autocomplete="username" value="<?php echo htmlentities($_SESSION['empemail']); ?>">
-                                        <input type="hidden" name="username" value="<?php echo htmlentities($_SESSION['empemail']); ?>">
                                         
                                         <div class="mb-4">
                                             <label for="currentPassword" class="form-label">Current Password</label>
@@ -453,7 +549,7 @@ if (isset($_POST['change'])) {
 
                                         <div class="d-grid gap-2">
                                             <button type="submit" name="change" id="submitButton" 
-                                                    class="btn btn-primary py-3" disabled>
+                                                    class="btn btn-primary py-3">
                                                 <i class="fas fa-save me-2"></i>Update Password
                                             </button>
                                         </div>
@@ -602,25 +698,29 @@ if (isset($_POST['change'])) {
             function validateForm() {
                 const newPass = $('#newPassword').val();
                 const confirmPass = $('#confirmPassword').val();
-                const btn = $('#submitButton');
                 const msg = $('#confirmMessage');
 
                 if (newPass && confirmPass) {
                     if (newPass === confirmPass) {
                         msg.text('✓ Passwords match').css('color', 'green');
-                        btn.prop('disabled', false);
                     } else {
                         msg.text('✗ Passwords do not match').css('color', 'red');
-                        btn.prop('disabled', true);
                     }
                 } else {
                     msg.text('');
-                    btn.prop('disabled', true);
                 }
             }
 
             // Form submission handler
             $('#passwordForm').on('submit', function() {
+                const newPass = $('#newPassword').val();
+                const confirmPass = $('#confirmPassword').val();
+                
+                if (newPass !== confirmPass) {
+                    alert('New password and confirm password do not match. Please fix before submitting.');
+                    return false;
+                }
+                
                 $('#submitButton').prop('disabled', true)
                     .html('<i class="fas fa-spinner fa-spin me-2"></i>Updating Password...');
                 return true;
