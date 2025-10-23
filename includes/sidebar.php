@@ -75,7 +75,7 @@ if (!isset($_SESSION['eid']) || !isset($_SESSION['empemail'])) {
                     </li>
                     
                     <li class="nav-item">
-                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>" href="dashboard.php">
+                        <a class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>" href="employee/dashboard.php">
                             <div class="nav-icon">
                                 <i class="fas fa-tachometer-alt"></i>
                             </div>
@@ -154,7 +154,7 @@ if (!isset($_SESSION['eid']) || !isset($_SESSION['empemail'])) {
                     </li>
                     
                     <li class="nav-item">
-                        <a class="nav-link" href="employee/chatwith-admin.php">
+                        <a class="nav-link" href="chatwith-admin.php">
                             <div class="nav-icon">
                                 <i class="fas fa-life-ring"></i>
                             </div>

@@ -2,18 +2,12 @@
 session_start();
 include('includes/config.php');
 
-if(strlen($_SESSION['emplogin'])==0) { 
+// FIXED: Check for the correct session variables
+if(!isset($_SESSION['eid']) || !isset($_SESSION['empemail'])) { 
     header('location:index.php');
     exit();
 } else {
     $empid = $_SESSION['eid'];
-    
-    $sql = "SELECT * FROM tblleaves WHERE empid=:eid ORDER BY PostingDate DESC";
-    $query = $dbh->prepare($sql);
-    $query->bindParam(':eid', $empid, PDO::PARAM_STR);
-    $query->execute();
-    $results = $query->fetchAll(PDO::FETCH_OBJ);
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -27,190 +21,432 @@ if(strlen($_SESSION['emplogin'])==0) {
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     
-    <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/css/modern.css">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Header should be fixed at top */
+        .header-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            height: 70px;
+        }
+        
+        /* Main layout container */
+        .main-container {
+            display: flex;
+            min-height: 100vh;
+            padding-top: 70px; /* Account for fixed header */
+        }
+        
+        /* Sidebar styling */
+        .sidebar-container {
+            width: 280px;
+            position: fixed;
+            left: 0;
+            top: 70px;
+            bottom: 0;
+            z-index: 1020;
+            background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+        
+        /* Main content area */
+        .content-container {
+            flex: 1;
+            margin-left: 280px;
+            min-height: calc(100vh - 70px);
+            transition: margin-left 0.3s ease;
+        }
+        
+        .content-area {
+            padding: 30px;
+            min-height: 100%;
+        }
+        
+        @media (max-width: 991.98px) {
+            .sidebar-container {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar-container.show {
+                transform: translateX(0);
+            }
+            
+            .content-container {
+                margin-left: 0;
+            }
+        }
+        
+        .page-title {
+            color: #1e293b;
+            font-weight: 700;
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .breadcrumb {
+            background: transparent;
+            padding: 0;
+            margin-bottom: 2rem;
+        }
+        
+        .breadcrumb-item a {
+            color: #64748b;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .breadcrumb-item a:hover {
+            color: #4f46e5;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 35px rgba(0, 0, 0, 0.12);
+        }
+        
+        .card-header {
+            background: var(--secondary-gradient);
+            color: white;
+            border-radius: 16px 16px 0 0 !important;
+            padding: 1.5rem 2rem;
+            border: none;
+        }
+        
+        .card-header h5 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+        
+        .card-body {
+            padding: 2rem;
+        }
+        
+        .table {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        }
+        
+        .table thead th {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-bottom: 2px solid #e2e8f0;
+            font-weight: 600;
+            color: #374151;
+            padding: 1rem;
+        }
+        
+        .table tbody td {
+            padding: 1rem;
+            vertical-align: middle;
+            border-color: #f1f5f9;
+        }
+        
+        .table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+        
+        .badge {
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            font-size: 0.75rem;
+        }
+        
+        .badge-pending {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            color: #92400e;
+        }
+        
+        .badge-approved {
+            background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+            color: #065f46;
+        }
+        
+        .badge-rejected {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            color: #991b1b;
+        }
+        
+        .btn-primary {
+            background: var(--primary-gradient);
+            border: none;
+            border-radius: 12px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.35);
+        }
+        
+        .no-leaves {
+            text-align: center;
+            padding: 3rem;
+            color: #6b7280;
+        }
+        
+        .no-leaves i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #d1d5db;
+        }
+        
+        /* Mobile sidebar backdrop */
+        .sidebar-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1019;
+            display: none;
+        }
+        
+        .sidebar-backdrop.show {
+            display: block;
+        }
+    </style>
 </head>
+
 <body>
-    <!-- Employee Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="index.php">
-                <i class="fas fa-calendar-alt me-2"></i> ELMS - Employee Portal
-            </a>
-            <div class="d-flex align-items-center">
-                <a href="index.php" class="btn btn-secondary btn-sm me-2">
-                    <i class="fas fa-arrow-left"></i> Back to Dashboard
-                </a>
-                <a href="apply-leave.php" class="btn btn-primary btn-sm">
-                    <i class="fas fa-plus"></i> Apply Leave
-                </a>
-            </div>
+    <!-- Header Container (Fixed at top) -->
+    <div class="header-container">
+        <?php include 'includes/header.php'; ?>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar Container (Fixed beside content) -->
+        <div class="sidebar-container" id="sidebarContainer">
+            <?php include 'includes/sidebar.php'; ?>
         </div>
-    </nav>
 
-    <div class="container-fluid py-4">
-        <div class="row">
-            <div class="col-12">
-                <!-- Page Header -->
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div>
-                        <h1 class="h3 mb-1">Leave History</h1>
-                        <p class="text-muted mb-0">Track your leave applications and their status</p>
-                    </div>
-                    <div class="btn-group">
-                        <button type="button" class="btn btn-outline-secondary active">All</button>
-                        <button type="button" class="btn btn-outline-secondary">Pending</button>
-                        <button type="button" class="btn btn-outline-secondary">Approved</button>
-                        <button type="button" class="btn btn-outline-secondary">Rejected</button>
-                    </div>
-                </div>
-
-                <!-- Leave History Table -->
-                <div class="card shadow-sm border-0">
-                    <div class="card-header bg-light">
-                        <h5><i class="fas fa-history"></i> My Leave Applications</h5>
-                        <span class="badge bg-primary"><?php echo $query->rowCount(); ?> total</span>
-                    </div>
-                    <div class="card-body">
-                        <?php if($query->rowCount() > 0) { ?>
-                        <div class="table-responsive">
-                            <table class="table table-striped align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Leave Type</th>
-                                        <th>From</th>
-                                        <th>To</th>
-                                        <th>Days</th>
-                                        <th>Applied On</th>
-                                        <th>Status</th>
-                                        <th>Remarks</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php
-                                    $cnt = 1;
-                                    foreach($results as $result) {
-                                        // Handle both d/m/Y and Y-m-d date formats safely
-                                        $from = DateTime::createFromFormat('d/m/Y', $result->FromDate);
-                                        $to = DateTime::createFromFormat('d/m/Y', $result->ToDate);
-
-                                        if(!$from || !$to) {
-                                            // Fallback in case stored as Y-m-d
-                                            $from = new DateTime($result->FromDate);
-                                            $to = new DateTime($result->ToDate);
-                                        }
-
-                                        $interval = $from->diff($to);
-                                        $num_days = $interval->days + 1; // include both start & end days
-
-                                        // Determine status label and color
-                                        if($result->Status == 1) {
-                                            $statusClass = 'bg-success';
-                                            $statusText = 'Approved';
-                                        } elseif($result->Status == 2) {
-                                            $statusClass = 'bg-danger';
-                                            $statusText = 'Rejected';
-                                        } else {
-                                            $statusClass = 'bg-warning text-dark';
-                                            $statusText = 'Pending';
-                                        }
-                                    ?>
-                                    <tr>
-                                        <td><?php echo htmlentities($cnt); ?></td>
-                                        <td><?php echo htmlentities($result->LeaveType); ?></td>
-                                        <td><?php echo htmlentities($result->FromDate); ?></td>
-                                        <td><?php echo htmlentities($result->ToDate); ?></td>
-                                        <td><?php echo htmlentities($num_days); ?></td>
-                                        <td><?php echo htmlentities($result->PostingDate); ?></td>
-                                        <td><span class="badge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span></td>
-                                        <td><?php echo !empty($result->AdminRemark) ? htmlentities($result->AdminRemark) : '-'; ?></td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#detailsModal<?php echo $cnt; ?>">
-                                                <i class="fas fa-eye"></i> View
-                                            </button>
-                                        </td>
-                                    </tr>
-
-                                    <!-- Details Modal -->
-                                    <div class="modal fade" id="detailsModal<?php echo $cnt; ?>" tabindex="-1">
-                                        <div class="modal-dialog modal-lg">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title">Leave Application Details</h5>
-                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                                </div>
-                                                <div class="modal-body">
-                                                    <p><strong>Leave Type:</strong> <?php echo htmlentities($result->LeaveType); ?></p>
-                                                    <p><strong>From:</strong> <?php echo htmlentities($result->FromDate); ?></p>
-                                                    <p><strong>To:</strong> <?php echo htmlentities($result->ToDate); ?></p>
-                                                    <p><strong>Number of Days:</strong> <?php echo htmlentities($num_days); ?></p>
-                                                    <p><strong>Status:</strong> <span class="badge <?php echo $statusClass; ?>"><?php echo $statusText; ?></span></p>
-                                                    <p><strong>Description:</strong> <?php echo htmlentities($result->Description); ?></p>
-                                                    <?php if(!empty($result->AdminRemark)) { ?>
-                                                        <p><strong>Admin Remarks:</strong> <?php echo htmlentities($result->AdminRemark); ?></p>
-                                                    <?php } ?>
-                                                </div>
-                                                <div class="modal-footer">
-                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <?php $cnt++; } ?>
-                                </tbody>
-                            </table>
+        <!-- Content Container (Beside sidebar) -->
+        <div class="content-container">
+            <div class="content-area">
+                <div class="container-fluid">
+                    <!-- Page Header -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h1 class="page-title">
+                                <i class="fas fa-history me-3"></i>Leave History
+                            </h1>
+                            <nav aria-label="breadcrumb">
+                                <ol class="breadcrumb">
+                                    <li class="breadcrumb-item"><a href="employee/dashboard.php" class="text-decoration-none">Dashboard</a></li>
+                                    <li class="breadcrumb-item active text-primary">Leave History</li>
+                                </ol>
+                            </nav>
                         </div>
-                        <?php } else { ?>
-                            <div class="text-center py-5">
-                                <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
-                                <h4 class="text-muted">No Leave History</h4>
+                    </div>
+
+                    <!-- Statistics Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <div class="text-success mb-2">
+                                        <i class="fas fa-check-circle fa-2x"></i>
+                                    </div>
+                                    <h3 class="text-success">
+                                        <?php
+                                        $sql_approved = "SELECT COUNT(*) as count FROM tblleaves WHERE empid=:empid AND Status=1";
+                                        $query_approved = $dbh->prepare($sql_approved);
+                                        $query_approved->bindParam(':empid', $empid, PDO::PARAM_STR);
+                                        $query_approved->execute();
+                                        $result_approved = $query_approved->fetch(PDO::FETCH_OBJ);
+                                        echo $result_approved->count;
+                                        ?>
+                                    </h3>
+                                    <p class="text-muted mb-0">Approved Leaves</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <div class="text-warning mb-2">
+                                        <i class="fas fa-clock fa-2x"></i>
+                                    </div>
+                                    <h3 class="text-warning">
+                                        <?php
+                                        $sql_pending = "SELECT COUNT(*) as count FROM tblleaves WHERE empid=:empid AND Status=0";
+                                        $query_pending = $dbh->prepare($sql_pending);
+                                        $query_pending->bindParam(':empid', $empid, PDO::PARAM_STR);
+                                        $query_pending->execute();
+                                        $result_pending = $query_pending->fetch(PDO::FETCH_OBJ);
+                                        echo $result_pending->count;
+                                        ?>
+                                    </h3>
+                                    <p class="text-muted mb-0">Pending Leaves</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <div class="text-danger mb-2">
+                                        <i class="fas fa-times-circle fa-2x"></i>
+                                    </div>
+                                    <h3 class="text-danger">
+                                        <?php
+                                        $sql_rejected = "SELECT COUNT(*) as count FROM tblleaves WHERE empid=:empid AND Status=2";
+                                        $query_rejected = $dbh->prepare($sql_rejected);
+                                        $query_rejected->bindParam(':empid', $empid, PDO::PARAM_STR);
+                                        $query_rejected->execute();
+                                        $result_rejected = $query_rejected->fetch(PDO::FETCH_OBJ);
+                                        echo $result_rejected->count;
+                                        ?>
+                                    </h3>
+                                    <p class="text-muted mb-0">Rejected Leaves</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Leave History Table -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-list me-2"></i>Your Leave Applications
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <?php
+                            $sql = "SELECT tblleaves.id as lid, tblleaves.LeaveType, tblleaves.FromDate, tblleaves.ToDate, 
+                                   tblleaves.Description, tblleaves.Status, tblleaves.PostingDate, 
+                                   tblemployees.FirstName, tblemployees.LastName 
+                                   FROM tblleaves 
+                                   JOIN tblemployees ON tblleaves.empid = tblemployees.id 
+                                   WHERE tblleaves.empid = :empid 
+                                   ORDER BY tblleaves.PostingDate DESC";
+                            $query = $dbh->prepare($sql);
+                            $query->bindParam(':empid', $empid, PDO::PARAM_STR);
+                            $query->execute();
+                            $results = $query->fetchAll(PDO::FETCH_OBJ);
+                            $cnt = 1;
+
+                            if($query->rowCount() > 0) {
+                            ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Leave Type</th>
+                                            <th>From Date</th>
+                                            <th>To Date</th>
+                                            <th>Description</th>
+                                            <th>Posting Date</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach($results as $result) { 
+                                            $fromDate = new DateTime($result->FromDate);
+                                            $toDate = new DateTime($result->ToDate);
+                                            $postingDate = new DateTime($result->PostingDate);
+                                        ?>
+                                        <tr>
+                                            <td><?php echo htmlentities($cnt); ?></td>
+                                            <td><?php echo htmlentities($result->LeaveType); ?></td>
+                                            <td><?php echo htmlentities($fromDate->format('d/m/Y')); ?></td>
+                                            <td><?php echo htmlentities($toDate->format('d/m/Y')); ?></td>
+                                            <td><?php echo htmlentities($result->Description); ?></td>
+                                            <td><?php echo htmlentities($postingDate->format('d/m/Y')); ?></td>
+                                            <td>
+                                                <?php 
+                                                $status = $result->Status;
+                                                if($status == 0) {
+                                                    echo '<span class="badge badge-pending">Pending</span>';
+                                                } elseif($status == 1) {
+                                                    echo '<span class="badge badge-approved">Approved</span>';
+                                                } elseif($status == 2) {
+                                                    echo '<span class="badge badge-rejected">Rejected</span>';
+                                                }
+                                                ?>
+                                            </td>
+                                        </tr>
+                                        <?php $cnt++; } ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <?php } else { ?>
+                            <div class="no-leaves">
+                                <i class="fas fa-inbox"></i>
+                                <h4>No Leave Applications Found</h4>
                                 <p class="text-muted">You haven't applied for any leaves yet.</p>
-                                <a href="apply-leave.php" class="btn btn-primary">
-                                    <i class="fas fa-plus"></i> Apply for Leave
+                                <a href="apply-leave.php" class="btn btn-primary mt-3">
+                                    <i class="fas fa-plus me-2"></i>Apply for Leave
                                 </a>
                             </div>
-                        <?php } ?>
+                            <?php } ?>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- jQuery and Bootstrap -->
+    <!-- Mobile Sidebar Backdrop -->
+    <div class="sidebar-backdrop"></div>
+
+    <!-- Bootstrap & jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- Prevent crash if setupFormEnhancements() missing -->
     <script>
-        if (typeof setupFormEnhancements !== "function") {
-            console.warn("setupFormEnhancements() placeholder — no logic implemented, creating fallback.");
-            window.setupFormEnhancements = function() {
-                console.info("setupFormEnhancements() safely stubbed.");
-            };
-        }
         $(document).ready(function() {
-            setupFormEnhancements();
-
-            // Filter logic
-            $('.btn-group .btn').on('click', function() {
-                $('.btn-group .btn').removeClass('active');
-                $(this).addClass('active');
-                const filter = $(this).text().toLowerCase();
-                const rows = $('table tbody tr');
-                if (filter === 'all') {
-                    rows.show();
-                } else {
-                    rows.hide().filter(function() {
-                        return $(this).find('td:nth-child(7)').text().toLowerCase() === filter;
-                    }).show();
+            // Mobile sidebar functionality
+            $('.mobile-menu-btn').on('click', function() {
+                $('#sidebarContainer').toggleClass('show');
+                $('.sidebar-backdrop').toggleClass('show');
+            });
+            
+            // Close sidebar when clicking on backdrop
+            $('.sidebar-backdrop').on('click', function() {
+                $('#sidebarContainer').removeClass('show');
+                $(this).removeClass('show');
+            });
+            
+            // Auto-close sidebar on mobile when clicking a link
+            $('.sidebar-container .nav-link').on('click', function() {
+                if ($(window).width() < 992) {
+                    $('#sidebarContainer').removeClass('show');
+                    $('.sidebar-backdrop').removeClass('show');
                 }
             });
         });
     </script>
-
-    <!-- Load modern.js last -->
-    <script src="assets/js/modern.js"></script>
 </body>
 </html>
+<?php } ?>

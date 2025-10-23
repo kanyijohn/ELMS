@@ -1,65 +1,20 @@
 <?php
 session_start();
-error_reporting(0);
-include 'includes/config.php';
+include('includes/config.php');
 
-// Redirect if not logged in
-if (strlen($_SESSION['emplogin']) == 0) {
+// FIXED: Check for the correct session variables
+if(!isset($_SESSION['eid']) || !isset($_SESSION['empemail'])) { 
     header('location:index.php');
     exit();
-}
-
-$eid = $_SESSION['emplogin'];
-$msg = "";
-$error = "";
-
-// ✅ Fetch employee details first
-$sql = "SELECT * FROM tblemployees WHERE EmailId = :eid";
-$query = $dbh->prepare($sql);
-$query->bindParam(':eid', $eid, PDO::PARAM_STR);
-$query->execute();
-$result = $query->fetch(PDO::FETCH_OBJ);
-
-if (!$result) {
-    $error = "Unable to fetch employee details.";
-}
-
-// ✅ Update logic when form submitted
-if (isset($_POST['update'])) {
-    $fname = $_POST['fname'];
-    $lname = $_POST['lname'];
-    $gender = $_POST['gender'];
-    $address = $_POST['address'];
-    $city = $_POST['city'];
-    $country = $_POST['country'];
-    $mobileno = $_POST['mobileno'];
-
-    $sql = "UPDATE tblemployees 
-            SET FirstName=:fname, LastName=:lname, Gender=:gender, 
-                Address=:address, City=:city, Country=:country, 
-                Phonenumber=:mobileno 
-            WHERE EmailId=:eid";
-    $query = $dbh->prepare($sql);
-    $query->bindParam(':fname', $fname, PDO::PARAM_STR);
-    $query->bindParam(':lname', $lname, PDO::PARAM_STR);
-    $query->bindParam(':gender', $gender, PDO::PARAM_STR);
-    $query->bindParam(':address', $address, PDO::PARAM_STR);
-    $query->bindParam(':city', $city, PDO::PARAM_STR);
-    $query->bindParam(':country', $country, PDO::PARAM_STR);
-    $query->bindParam(':mobileno', $mobileno, PDO::PARAM_STR);
-    $query->bindParam(':eid', $eid, PDO::PARAM_STR);
+} else {
+    $empid = $_SESSION['eid'];
     
-    if ($query->execute()) {
-        $msg = "Profile updated successfully!";
-        // Refresh the data to show updated info
-        $query = $dbh->prepare("SELECT * FROM tblemployees WHERE EmailId = :eid");
-        $query->bindParam(':eid', $eid, PDO::PARAM_STR);
-        $query->execute();
-        $result = $query->fetch(PDO::FETCH_OBJ);
-    } else {
-        $error = "Failed to update profile. Please try again.";
-    }
-}
+    // Get employee details
+    $sql = "SELECT * FROM tblemployees WHERE id=:eid";
+    $query = $dbh->prepare($sql);
+    $query->bindParam(':eid', $empid, PDO::PARAM_STR);
+    $query->execute();
+    $employee = $query->fetch(PDO::FETCH_OBJ);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -72,180 +27,447 @@ if (isset($_POST['update'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="assets/css/modern.css">
+    
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --secondary-gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Header should be fixed at top */
+        .header-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            height: 70px;
+        }
+        
+        /* Main layout container */
+        .main-container {
+            display: flex;
+            min-height: 100vh;
+            padding-top: 70px; /* Account for fixed header */
+        }
+        
+        /* Sidebar styling */
+        .sidebar-container {
+            width: 280px;
+            position: fixed;
+            left: 0;
+            top: 70px;
+            bottom: 0;
+            z-index: 1020;
+            background: linear-gradient(180deg, #1f2937 0%, #111827 100%);
+            overflow-y: auto;
+            transition: transform 0.3s ease;
+        }
+        
+        /* Main content area */
+        .content-container {
+            flex: 1;
+            margin-left: 280px;
+            min-height: calc(100vh - 70px);
+            transition: margin-left 0.3s ease;
+        }
+        
+        .content-area {
+            padding: 30px;
+            min-height: 100%;
+        }
+        
+        @media (max-width: 991.98px) {
+            .sidebar-container {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar-container.show {
+                transform: translateX(0);
+            }
+            
+            .content-container {
+                margin-left: 0;
+            }
+        }
+        
+        .page-title {
+            color: #1e293b;
+            font-weight: 700;
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .breadcrumb {
+            background: transparent;
+            padding: 0;
+            margin-bottom: 2rem;
+        }
+        
+        .breadcrumb-item a {
+            color: #64748b;
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+        
+        .breadcrumb-item a:hover {
+            color: #4f46e5;
+        }
+        
+        .card {
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 35px rgba(0, 0, 0, 0.12);
+        }
+        
+        .card-header {
+            background: var(--secondary-gradient);
+            color: white;
+            border-radius: 16px 16px 0 0 !important;
+            padding: 1.5rem 2rem;
+            border: none;
+        }
+        
+        .card-header h5 {
+            margin: 0;
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+        
+        .card-body {
+            padding: 2rem;
+        }
+        
+        .profile-avatar {
+            width: 120px;
+            height: 120px;
+            background: var(--primary-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: white;
+            margin: 0 auto 1.5rem;
+            border: 4px solid white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .info-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 12px;
+            border-left: 4px solid #4f46e5;
+        }
+        
+        .info-item i {
+            width: 20px;
+            margin-right: 1rem;
+            margin-top: 0.25rem;
+            color: #4f46e5;
+        }
+        
+        .info-label {
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 0.25rem;
+        }
+        
+        .info-value {
+            color: #6b7280;
+        }
+        
+        .btn-primary {
+            background: var(--primary-gradient);
+            border: none;
+            border-radius: 12px;
+            padding: 0.75rem 1.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.35);
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            border: 1px solid #f1f5f9;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-label {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+        
+        /* Mobile sidebar backdrop */
+        .sidebar-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1019;
+            display: none;
+        }
+        
+        .sidebar-backdrop.show {
+            display: block;
+        }
+    </style>
 </head>
+
 <body>
-    <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="index.php">
-                <i class="fas fa-calendar-alt me-2"></i> ELMS - Employee Portal
-            </a>
-            <div class="d-flex align-items-center">
-                <a href="index.php" class="btn btn-secondary btn-sm">
-                    <i class="fas fa-arrow-left"></i> Back to Dashboard
-                </a>
-            </div>
+    <!-- Header Container (Fixed at top) -->
+    <div class="header-container">
+        <?php include 'includes/header.php'; ?>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar Container (Fixed beside content) -->
+        <div class="sidebar-container" id="sidebarContainer">
+            <?php include 'includes/sidebar.php'; ?>
         </div>
-    </nav>
 
-    <div class="container-fluid py-4">
-        <div class="row justify-content-center">
-            <div class="col-lg-10">
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <div>
-                        <h1 class="h3 mb-1">My Profile</h1>
-                        <p class="text-muted mb-0">Manage your personal information and account details</p>
-                    </div>
-                    <div>
-                        <a href="emp-changepassword.php" class="btn btn-warning">
-                            <i class="fas fa-key"></i> Change Password
-                        </a>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <!-- Profile Summary -->
-                    <div class="col-lg-4">
-                        <div class="card shadow-sm border-0">
-                            <div class="card-body text-center">
-                                <div class="mb-4">
-                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" 
-                                         style="width: 100px; height: 100px; font-size: 36px;">
-                                        <?php echo substr(htmlentities($result->FirstName ?? 'U'), 0, 1); ?>
-                                    </div>
-                                    <h4 class="mb-1"><?php echo htmlentities($result->FirstName).' '.htmlentities($result->LastName); ?></h4>
-                                    <p class="text-muted mb-2"><?php echo htmlentities($result->Department); ?></p>
-                                    <span class="badge <?php echo ($result->Status == 1) ? 'bg-success' : 'bg-danger'; ?>">
-                                        <?php echo ($result->Status == 1) ? 'Active' : 'Inactive'; ?>
-                                    </span>
-                                </div>
-                                <div class="text-start">
-                                    <p><strong>Employee ID:</strong> <?php echo htmlentities($result->EmpId); ?></p>
-                                    <p><strong>Email:</strong> <?php echo htmlentities($result->EmailId); ?></p>
-                                    <p><strong>Phone:</strong> <?php echo htmlentities($result->Phonenumber ?? 'Not provided'); ?></p>
-                                    <p><strong>Reg Date:</strong> <?php echo htmlentities($result->RegDate); ?></p>
-                                </div>
-                            </div>
+        <!-- Content Container (Beside sidebar) -->
+        <div class="content-container">
+            <div class="content-area">
+                <div class="container-fluid">
+                    <!-- Page Header -->
+                    <div class="row mb-4">
+                        <div class="col-12">
+                            <h1 class="page-title">
+                                <i class="fas fa-user me-3"></i>My Profile
+                            </h1>
+                            <nav aria-label="breadcrumb">
+                                <ol class="breadcrumb">
+                                    <li class="breadcrumb-item"><a href="employee/dashboard.php" class="text-decoration-none">Dashboard</a></li>
+                                    <li class="breadcrumb-item active text-primary">My Profile</li>
+                                </ol>
+                            </nav>
                         </div>
                     </div>
 
-                    <!-- Edit Profile -->
-                    <div class="col-lg-8">
-                        <div class="card shadow-sm border-0">
-                            <div class="card-header bg-light">
-                                <h5><i class="fas fa-user-edit"></i> Edit Profile Information</h5>
+                    <!-- Statistics -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number text-primary">
+                                <?php
+                                $sql_approved = "SELECT COUNT(*) as count FROM tblleaves WHERE empid=:empid AND Status=1";
+                                $query_approved = $dbh->prepare($sql_approved);
+                                $query_approved->bindParam(':empid', $empid, PDO::PARAM_STR);
+                                $query_approved->execute();
+                                $result_approved = $query_approved->fetch(PDO::FETCH_OBJ);
+                                echo $result_approved->count;
+                                ?>
                             </div>
-                            <div class="card-body">
-                                <?php if($error) { ?>
-                                    <div class="alert alert-danger"><?php echo htmlentities($error); ?></div>
-                                <?php } ?>
-                                <?php if($msg) { ?>
-                                    <div class="alert alert-success"><?php echo htmlentities($msg); ?></div>
-                                <?php } ?>
+                            <div class="stat-label">Approved Leaves</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number text-warning">
+                                <?php
+                                $sql_pending = "SELECT COUNT(*) as count FROM tblleaves WHERE empid=:empid AND Status=0";
+                                $query_pending = $dbh->prepare($sql_pending);
+                                $query_pending->bindParam(':empid', $empid, PDO::PARAM_STR);
+                                $query_pending->execute();
+                                $result_pending = $query_pending->fetch(PDO::FETCH_OBJ);
+                                echo $result_pending->count;
+                                ?>
+                            </div>
+                            <div class="stat-label">Pending Leaves</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number text-danger">
+                                <?php
+                                $sql_rejected = "SELECT COUNT(*) as count FROM tblleaves WHERE empid=:empid AND Status=2";
+                                $query_rejected = $dbh->prepare($sql_rejected);
+                                $query_rejected->bindParam(':empid', $empid, PDO::PARAM_STR);
+                                $query_rejected->execute();
+                                $result_rejected = $query_rejected->fetch(PDO::FETCH_OBJ);
+                                echo $result_rejected->count;
+                                ?>
+                            </div>
+                            <div class="stat-label">Rejected Leaves</div>
+                        </div>
+                    </div>
 
-                                <form method="post">
+                    <div class="row">
+                        <!-- Profile Information -->
+                        <div class="col-lg-8">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">
+                                        <i class="fas fa-user-circle me-2"></i>Personal Information
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="profile-avatar">
+                                        <?php echo strtoupper(substr(htmlentities($employee->FirstName), 0, 1)); ?>
+                                    </div>
+                                    
                                     <div class="row">
                                         <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">First Name</label>
-                                                <input type="text" class="form-control" name="fname" value="<?php echo htmlentities($result->FirstName); ?>" required>
+                                            <div class="info-item">
+                                                <i class="fas fa-id-card"></i>
+                                                <div>
+                                                    <div class="info-label">Employee ID</div>
+                                                    <div class="info-value"><?php echo htmlentities($employee->EmpId); ?></div>
+                                                </div>
                                             </div>
                                         </div>
                                         <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Last Name</label>
-                                                <input type="text" class="form-control" name="lname" value="<?php echo htmlentities($result->LastName); ?>" required>
+                                            <div class="info-item">
+                                                <i class="fas fa-user"></i>
+                                                <div>
+                                                    <div class="info-label">Full Name</div>
+                                                    <div class="info-value"><?php echo htmlentities($employee->FirstName) . ' ' . htmlentities($employee->LastName); ?></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="info-item">
+                                                <i class="fas fa-envelope"></i>
+                                                <div>
+                                                    <div class="info-label">Email Address</div>
+                                                    <div class="info-value"><?php echo htmlentities($employee->EmailId); ?></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="info-item">
+                                                <i class="fas fa-phone"></i>
+                                                <div>
+                                                    <div class="info-label">Phone Number</div>
+                                                    <div class="info-value"><?php echo htmlentities($employee->Phonenumber); ?></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="info-item">
+                                                <i class="fas fa-building"></i>
+                                                <div>
+                                                    <div class="info-label">Department</div>
+                                                    <div class="info-value"><?php echo htmlentities($employee->Department); ?></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="info-item">
+                                                <i class="fas fa-briefcase"></i>
+                                                <div>
+                                                    <div class="info-label">Role</div>
+                                                    <div class="info-value"><?php echo htmlentities($employee->Role); ?></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="info-item">
+                                                <i class="fas fa-calendar"></i>
+                                                <div>
+                                                    <div class="info-label">Registration Date</div>
+                                                    <div class="info-value">
+                                                        <?php 
+                                                        $regDate = new DateTime($employee->RegDate);
+                                                        echo htmlentities($regDate->format('F j, Y'));
+                                                        ?>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="info-item">
+                                                <i class="fas fa-map-marker-alt"></i>
+                                                <div>
+                                                    <div class="info-label">Address</div>
+                                                    <div class="info-value"><?php echo htmlentities($employee->Address); ?></div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Email</label>
-                                                <input type="email" class="form-control" value="<?php echo htmlentities($result->EmailId); ?>" readonly>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Gender</label>
-                                                <select class="form-control" name="gender">
-                                                    <option value="Male" <?php if($result->Gender=="Male") echo "selected"; ?>>Male</option>
-                                                    <option value="Female" <?php if($result->Gender=="Female") echo "selected"; ?>>Female</option>
-                                                    <option value="Other" <?php if($result->Gender=="Other") echo "selected"; ?>>Other</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Department</label>
-                                                <input type="text" class="form-control" value="<?php echo htmlentities($result->Department); ?>" readonly>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Mobile Number</label>
-                                                <input type="text" class="form-control" name="mobileno" value="<?php echo htmlentities($result->Phonenumber); ?>">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="mb-3">
-                                        <label class="form-label">Address</label>
-                                        <textarea class="form-control" name="address" rows="3"><?php echo htmlentities($result->Address); ?></textarea>
-                                    </div>
-
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">City</label>
-                                                <input type="text" class="form-control" name="city" value="<?php echo htmlentities($result->City); ?>">
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="mb-3">
-                                                <label class="form-label">Country</label>
-                                                <input type="text" class="form-control" name="country" value="<?php echo htmlentities($result->Country); ?>">
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="d-flex justify-content-end gap-2">
-                                        <a href="index.php" class="btn btn-secondary"><i class="fas fa-times"></i> Cancel</a>
-                                        <button type="submit" name="update" class="btn btn-primary"><i class="fas fa-save"></i> Update Profile</button>
-                                    </div>
-                                </form>
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Account Info -->
-                        <div class="card mt-4 shadow-sm border-0">
-                            <div class="card-header bg-light">
-                                <h6><i class="fas fa-info-circle"></i> Account Information</h6>
+                        <!-- Quick Actions -->
+                        <div class="col-lg-4">
+                            <div class="card">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="card-title mb-0">
+                                        <i class="fas fa-cog me-2"></i>Quick Actions
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-grid gap-2">
+                                        <a href="emp-changepassword.php" class="btn btn-primary">
+                                            <i class="fas fa-key me-2"></i>Change Password
+                                        </a>
+                                        <a href="apply-leave.php" class="btn btn-outline-primary">
+                                            <i class="fas fa-paper-plane me-2"></i>Apply for Leave
+                                        </a>
+                                        <a href="leavehistory.php" class="btn btn-outline-primary">
+                                            <i class="fas fa-history me-2"></i>View Leave History
+                                        </a>
+                                        <a href="chatwith-admin.php" class="btn btn-outline-primary">
+                                            <i class="fas fa-comments me-2"></i>Contact Admin
+                                        </a>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <small class="text-muted d-block">Employee ID</small>
-                                        <strong><?php echo htmlentities($result->EmpId); ?></strong>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <small class="text-muted d-block">Registered On</small>
-                                        <strong><?php echo htmlentities($result->RegDate); ?></strong>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <small class="text-muted d-block">Last Updated</small>
-                                        <strong><?php echo htmlentities($result->UpdationDate ?? 'Never'); ?></strong>
-                                    </div>
-                                    <div class="col-md-6 mb-3">
-                                        <small class="text-muted d-block">Status</small>
-                                        <span class="badge <?php echo ($result->Status == 1) ? 'bg-success' : 'bg-danger'; ?>">
-                                            <?php echo ($result->Status == 1) ? 'Active' : 'Inactive'; ?>
-                                        </span>
+
+                            <!-- Account Status -->
+                            <div class="card mt-4">
+                                <div class="card-header bg-success text-white">
+                                    <h5 class="card-title mb-0">
+                                        <i class="fas fa-shield-alt me-2"></i>Account Status
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="text-center">
+                                        <div class="mb-3">
+                                            <i class="fas fa-check-circle fa-3x text-success"></i>
+                                        </div>
+                                        <h5 class="text-success">Active</h5>
+                                        <p class="text-muted mb-0">Your account is active and in good standing</p>
                                     </div>
                                 </div>
                             </div>
@@ -256,8 +478,36 @@ if (isset($_POST['update'])) {
         </div>
     </div>
 
-    <!-- Scripts -->
+    <!-- Mobile Sidebar Backdrop -->
+    <div class="sidebar-backdrop"></div>
+
+    <!-- Bootstrap & jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        $(document).ready(function() {
+            // Mobile sidebar functionality
+            $('.mobile-menu-btn').on('click', function() {
+                $('#sidebarContainer').toggleClass('show');
+                $('.sidebar-backdrop').toggleClass('show');
+            });
+            
+            // Close sidebar when clicking on backdrop
+            $('.sidebar-backdrop').on('click', function() {
+                $('#sidebarContainer').removeClass('show');
+                $(this).removeClass('show');
+            });
+            
+            // Auto-close sidebar on mobile when clicking a link
+            $('.sidebar-container .nav-link').on('click', function() {
+                if ($(window).width() < 992) {
+                    $('#sidebarContainer').removeClass('show');
+                    $('.sidebar-backdrop').removeClass('show');
+                }
+            });
+        });
+    </script>
 </body>
 </html>
+<?php } ?>

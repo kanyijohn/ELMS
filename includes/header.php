@@ -322,6 +322,7 @@ if (!isset($_SESSION['eid']) || !isset($_SESSION['empemail'])) {
             $('.mobile-menu-btn').on('click', function() {
                 $(this).toggleClass('active');
             });
+            });
         });
     </script>
 <?php } ?>
