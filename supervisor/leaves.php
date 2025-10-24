@@ -1,8 +1,8 @@
 <?php
 session_start();
-include('../includes/config.php'); // ✅ Correct path
+include __DIR__ . '/../includes/config.php';
 
-if (empty($_SESSION['emplogin'])) {
+if (!isset($_SESSION['eid']) || $_SESSION['role'] != 'Supervisor') {
     header('location:../index.php');
     exit();
 }
