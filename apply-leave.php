@@ -116,7 +116,7 @@ if (isset($_POST['apply'])) {
                                                 <p><strong>Description:</strong> {$description}</p>
                                             </div>
                                             <p style='text-align: center;'>
-                                                <a href='http://localhost/ELMS/leaves.php' class='button'>
+                                                <a href='http://localhost/elms/supervisor/leaves.php' class='button'>
                                                     Review Leave Request
                                                 </a>
                                             </p>
