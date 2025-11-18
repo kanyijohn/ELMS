@@ -116,7 +116,7 @@ if (isset($_POST['apply'])) {
                                                 <p><strong>Description:</strong> {$description}</p>
                                             </div>
                                             <p style='text-align: center;'>
-                                                <a href='http://localhost/elms/supervisor/leaves.php' class='button'>
+                                                <a href='http://localhost/ELMS/leaves.php' class='button'>
                                                     Review Leave Request
                                                 </a>
                                             </p>
@@ -176,25 +176,81 @@ if (isset($_POST['apply'])) {
             border-left: 4px solid #5cb85c;
             box-shadow: 0 1px 1px 0 rgba(0,0,0,.1);
         }
-        .main-content {
+        /* Main layout styles */
+        .main-container {
+            display: flex;
+            min-height: 100vh;
+        }
+        .sidebar-container {
+            width: 250px;
+            position: fixed;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            z-index: 1000;
+            background: #f8f9fa;
+            border-right: 1px solid #dee2e6;
+            overflow-y: auto;
+        }
+        .content-container {
+            flex: 1;
             margin-left: 250px;
+            min-height: 100vh;
+            background: #ffffff;
+        }
+        .content-area {
+            padding: 20px;
+            min-height: 100%;
+        }
+        /* Header styles */
+        .header-container {
+            position: fixed;
+            top: 0;
+            left: 250px;
+            right: 0;
+            z-index: 1030;
+            height: 60px;
+            background: white;
+            border-bottom: 1px solid #dee2e6;
+        }
+        /* Adjust content to account for fixed header */
+        .main-content {
+            margin-top: 60px;
             padding: 20px;
         }
+        /* Mobile responsive */
         @media (max-width: 768px) {
-            .main-content {
+            .sidebar-container {
+                position: relative;
+                width: 100%;
+                height: auto;
+            }
+            .content-container {
                 margin-left: 0;
+            }
+            .header-container {
+                left: 0;
             }
         }
     </style>
 </head>
 <body>
-    <?php include('includes/header.php'); ?>
-    
-    <div class="container-fluid">
-        <div class="row">
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Sidebar Container -->
+        <div class="sidebar-container">
             <?php include('includes/sidebar.php'); ?>
-            
-            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 main-content">
+        </div>
+
+        <!-- Content Container -->
+        <div class="content-container">
+            <!-- Header Container -->
+            <div class="header-container">
+                <?php include('includes/header.php'); ?>
+            </div>
+
+            <!-- Main Content Area -->
+            <div class="main-content">
                 <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                     <h1 class="h2">Apply for Leave</h1>
                 </div>
@@ -254,11 +310,11 @@ if (isset($_POST['apply'])) {
                         </form>
                     </div>
                 </div>
-            </main>
+            </div>
         </div>
     </div>
 
     <!-- Using CDN for Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
-</html> 
+</html>
